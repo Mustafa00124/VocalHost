@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VocalHost - AI Voice Assistant</title>
+    <script>
+      // Immediately set theme on page load before React hydrates
+      (function() {
+        var savedTheme = localStorage.getItem('schedule_ai_theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'light') {
+          document.documentElement.classList.add('light');
+        } else if (savedTheme === 'dark' || prefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.add('dark'); // Default
+        }
+      })();
+    </script>
+    <style>
+      /* Critical theme styles to prevent FOUC (Flash of Unstyled Content) */
+      .dark body { background: linear-gradient(to bottom right, #0f172a, #1e293b); color: #ffffff; }
+      .light body { background: linear-gradient(to bottom right, #f1f5f9, #e2e8f0); color: #334155; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

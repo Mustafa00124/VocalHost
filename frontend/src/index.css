@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background-dark: linear-gradient(to bottom right, #0f172a, #1e293b);
+  --background-light: linear-gradient(to bottom right, #f1f5f9, #e2e8f0);
+  --scrollbar-track-dark: rgba(0, 0, 0, 0.1);
+  --scrollbar-track-light: rgba(0, 0, 0, 0.05);
+  --scrollbar-thumb-dark: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-light: rgba(0, 0, 0, 0.1);
+  --scrollbar-thumb-hover-dark: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover-light: rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode (default) */
+.dark body {
+  color-scheme: dark;
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background-dark);
+  color: #ffffff;
+}
+
+/* Light mode */
+.light body {
+  color-scheme: light;
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background-light);
+  color: #334155;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+}
+
+/* Custom scrollbar classes */
+.dark-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-dark);
+  border-radius: 4px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-dark);
+  border-radius: 4px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-dark);
+}
+
+.light-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.light-scrollbar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-light);
+  border-radius: 4px;
+}
+
+.light-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-light);
+  border-radius: 4px;
+}
+
+.light-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-light);
+}
+
+/* Assistant card description scrollbar */
+.assistant-card-description::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.assistant-card-description::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.assistant-card-description::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.assistant-card-description::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.light .assistant-card-description::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light .assistant-card-description::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.light .assistant-card-description::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Scale down Create Assistant page - only on larger screens */
+.create-assistant-page {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .create-assistant-page {
+    transform: scale(0.92);
+    transform-origin: top center;
+    margin-top: -1.5rem; /* Reduced from -2rem */
+    margin-bottom: -1.5rem; /* Reduced from -2rem */
+    max-height: calc(100vh - 120px); /* Limit maximum height */
+    overflow: visible; /* Prevent scrollbars on the container */
+  }
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+/* Apply transitions to specific properties only */
+html, body, div, nav, main, section, article, aside, header, footer {
+  transition: background 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+/* Remove transitions from certain elements that don't need them */
+button svg, a svg, .icon, img {
+  transition: none;
+}
+
+/* Form styles for light mode */
+.light input, 
+.light textarea, 
+.light select {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.light input:focus, 
+.light textarea:focus, 
+.light select:focus {
+  border-color: #0ea5e9;
+  outline: none;
+  ring-color: #38bdf8;
+}
+
+/* Card styles for light mode */
+.light .bg-gray-800\/50 {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-color: #e2e8f0;
+}
+
+/* Button styles for light mode */
+.light .bg-gradient-to-r.from-primary-500.to-secondary-500 {
+  background: linear-gradient(to right, #0ea5e9, #a855f7);
+  color: white;
+}
+
+/* Preview panel light mode */
+.light .bg-gray-800 {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+/* Additional light mode overrides */
+.light .text-gray-300 {
+  color: #64748b;
+}
+
+.light .text-gray-400 {
+  color: #64748b;
+}
+
+.light .border-gray-700 {
+  border-color: #e2e8f0;
+}
+
+.light .text-white {
+  color: #334155;
+}
+
+/* Style fixes for preview panel */
+.light .text-primary-400 {
+  color: #0284c7;
+}
+
+.light .text-secondary-400 {
+  color: #a21caf;
+}
+
+/* Nav styling */
+.light nav {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(8px);
+  border-color: #e2e8f0 !important;
+}
+
+/* Create Assistant title in light mode */
+.light h1.bg-gradient-to-r.bg-clip-text.text-transparent {
+  background-image: linear-gradient(to right, #0284c7, #a21caf);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  /* Font size adjustments for mobile */
+  h1 {
+    font-size: 1.75rem !important;
+  }
+  
+  h2 {
+    font-size: 1.5rem !important;
+  }
+  
+  h3 {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Adjust padding for mobile */
+  .p-6 {
+    padding: 1rem !important;
+  }
+  
+  /* Fix for mobile input fields */
+  input[type="date"], 
+  input[type="time"] {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Make sure buttons are large enough for touch */
+  button, 
+  [role="button"], 
+  a.button, 
+  .button, 
+  input[type="button"], 
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Fix overflow issues on mobile */
+  .container {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Add specific tablet optimizations here */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Fix for mobile viewport height issues (for iOS Safari) */
+.min-h-screen {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* For iOS Safari */
+html {
+  height: -webkit-fill-available;
+}
+
+/* Time inputs styling */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+input[type="time"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+}
+
+.light input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+  opacity: 0.5;
+}
+
+/* Select styling */
+select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Light mode form controls */
+.light select,
+.light input[type="time"],
+.light input[type="number"],
+.light input[type="text"],
+.light textarea {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.light select:focus,
+.light input[type="time"]:focus,
+.light input[type="number"]:focus,
+.light input[type="text"]:focus,
+.light textarea:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2);
+} 
