@@ -18,8 +18,8 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
 
     app.config.update(
-      SESSION_COOKIE_SAMESITE="None",   # allow cross-site
-      SESSION_COOKIE_SECURE=True,       # must be HTTPS
+      SESSION_COOKIE_SAMESITE="Lax",    # allow cookies on same site
+      SESSION_COOKIE_SECURE=False,      # allow HTTP for local development
       SESSION_COOKIE_HTTPONLY=True      # keep it httpOnly
     )
 

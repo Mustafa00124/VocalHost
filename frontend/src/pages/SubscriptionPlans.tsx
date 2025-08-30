@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { CheckIcon, SparklesIcon, StarIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, SparklesIcon, StarIcon, BuildingOfficeIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import ConfirmationModal from '../components/ConfirmationModal';
+
+interface SubscriptionStatus {
+  plan: string;
+  subscription_status: string;
+  max_agents: number;
+  allowed_addons: string[];
+  can_create_agent: boolean;
+}
 
 const SubscriptionPlans = () => {
   const { theme } = useTheme();
@@ -11,6 +19,7 @@ const SubscriptionPlans = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   
   // Calendly URL for custom plan inquiries
   const CALENDLY_URL = "https://calendly.com/buggedbrilliance-support";
@@ -23,7 +32,35 @@ const SubscriptionPlans = () => {
   const textMutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
   const borderClass = theme === 'dark' ? 'border-gray-700' : 'border-gray-200';
   
-  // Plan data
+  // Fetch subscription status
+  useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/my-agents`, {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setSubscriptionStatus({
+            plan: data.user_info.plan,
+            subscription_status: data.user_info.subscription_status,
+            max_agents: data.user_info.max_agents,
+            allowed_addons: data.user_info.allowed_addons,
+            can_create_agent: data.user_info.can_create_agent
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription status:', error);
+      }
+    };
+
+    fetchSubscriptionStatus();
+  }, [user, API_BASE_URL]);
+
+  // Plan data with dynamic status checking
   const plans = [
     {
       id: 'basic',
@@ -35,13 +72,12 @@ const SubscriptionPlans = () => {
         '1 voice assistant',
         '📞 Voice calls & responses',
         '📚 Knowledge base integration',
-        '📅 Booking & scheduling',
         'Business hours support',
         'Today-only analytics',
         'Standard voice quality'
       ],
       icon: <StarIcon className="w-6 h-6" />,
-      color: 'from-blue-400 to-cyan-400',
+      color: 'from-primary-400 to-primary-500',
       popular: false
     },
     {
@@ -62,7 +98,7 @@ const SubscriptionPlans = () => {
         'Premium voice quality'
       ],
       icon: <SparklesIcon className="w-6 h-6" />,
-      color: 'from-purple-400 to-pink-400',
+      color: 'from-primary-500 to-secondary-500',
       popular: true
     },
     {
@@ -81,12 +117,30 @@ const SubscriptionPlans = () => {
         'Custom integrations'
       ],
       icon: <BuildingOfficeIcon className="w-6 h-6" />,
-      color: 'from-amber-400 to-orange-400',
+      color: 'from-secondary-400 to-secondary-500',
       popular: false
     }
   ];
 
+  const getCurrentPlanStatus = (planId: string) => {
+    if (!subscriptionStatus) return 'available';
+    
+    if (subscriptionStatus.plan === planId && subscriptionStatus.subscription_status === 'active') {
+      return 'current';
+    } else if (subscriptionStatus.plan === 'none' || subscriptionStatus.subscription_status !== 'active') {
+      return 'available';
+    } else {
+      // User has a different active plan
+      const currentPlanIndex = plans.findIndex(p => p.id === subscriptionStatus.plan);
+      const thisPlanIndex = plans.findIndex(p => p.id === planId);
+      return thisPlanIndex > currentPlanIndex ? 'upgrade' : 'downgrade';
+    }
+  };
+
   const handlePlanSelect = (planId: string) => {
+    const status = getCurrentPlanStatus(planId);
+    if (status === 'current') return;
+    
     setSelectedPlan(planId);
     if (planId === 'custom') {
       // For custom plan, open Calendly link
@@ -139,7 +193,7 @@ const SubscriptionPlans = () => {
   };
 
   const handleManageSubscription = async () => {
-    if (!user || !user.stripe_customer_id) {
+    if (!user || !subscriptionStatus?.subscription_status) {
       alert('No subscription found. Please subscribe to a plan first.');
       return;
     }
@@ -171,6 +225,20 @@ const SubscriptionPlans = () => {
     }
   };
 
+  const getPlanButtonText = (planId: string) => {
+    const status = getCurrentPlanStatus(planId);
+    switch (status) {
+      case 'current': return 'Current Plan';
+      case 'upgrade': return 'Upgrade';
+      case 'downgrade': return 'Downgrade';
+      default: return planId === 'custom' ? 'Schedule Consultation' : 'Subscribe Now';
+    }
+  };
+
+  const isPlanDisabled = (planId: string) => {
+    return getCurrentPlanStatus(planId) === 'current';
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
       <motion.div 
@@ -187,10 +255,28 @@ const SubscriptionPlans = () => {
             Find the perfect plan for your business needs. Upgrade, downgrade, or cancel anytime.
           </p>
           
-
+          {/* Current Subscription Status */}
+          {subscriptionStatus && (
+            <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full ${
+              subscriptionStatus.subscription_status === 'active' 
+                ? theme === 'dark' 
+                  ? 'bg-primary-900 text-primary-200 border border-primary-700' 
+                  : 'bg-primary-50 text-primary-800 border border-primary-200'
+                : theme === 'dark'
+                  ? 'bg-yellow-900 text-yellow-200 border border-yellow-700'
+                  : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+            }`}>
+              <span className="font-medium">
+                Current Plan: {subscriptionStatus.plan === 'none' ? 'No Subscription' : subscriptionStatus.plan.charAt(0).toUpperCase() + subscriptionStatus.plan.slice(1)}
+              </span>
+              {subscriptionStatus.subscription_status === 'active' && (
+                <CheckIcon className="w-4 h-4" />
+              )}
+            </div>
+          )}
           
           {/* Subscription Management Button for existing users */}
-          {user && user.stripe_customer_id && (
+          {subscriptionStatus && subscriptionStatus.subscription_status === 'active' && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -205,94 +291,139 @@ const SubscriptionPlans = () => {
 
         {/* Plans Grid */}
         <div className="grid md:grid-cols-3 gap-8">
-          {plans.map((plan) => (
-            <motion.div
-              key={plan.id}
-              whileHover={{ scale: 1.03 }}
-              transition={{ type: "spring", stiffness: 300 }}
-              className={`relative rounded-2xl ${bgClass} border p-6 shadow-lg flex flex-col h-full`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-0 right-0 flex justify-center">
-                  <span className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-              
-              <div className="flex items-center space-x-3 mb-4">
-                <div className={`p-2 rounded-lg bg-gradient-to-r ${plan.color} text-white`}>
-                  {plan.icon}
-                </div>
-                <h3 className={`text-xl font-bold ${textClass}`}>{plan.name}</h3>
-              </div>
-              
-              <div className="mb-4">
-                <div className="flex items-baseline">
-                  <span className={`text-3xl font-extrabold ${textClass}`}>{plan.price}</span>
-                  <span className={`ml-2 ${textMutedClass}`}>{plan.period}</span>
-                </div>
-                <p className={`mt-2 ${textMutedClass}`}>{plan.description}</p>
-              </div>
-              
-              <div className="flex-grow">
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <CheckIcon className="flex-shrink-0 w-5 h-5 text-green-500 mt-0.5" />
-                      <span className={`ml-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                        {feature}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handlePlanSelect(plan.id)}
-                disabled={loading}
-                className={`mt-auto w-full px-4 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50
-                  ${plan.id === 'custom' 
-                    ? `border ${borderClass} ${theme === 'dark' ? 'text-white' : 'text-gray-800'} ${hoverBgClass}` 
-                    : 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white hover:opacity-90'}`}
+          {plans.map((plan) => {
+            const planStatus = getCurrentPlanStatus(plan.id);
+            const isDisabled = isPlanDisabled(plan.id);
+            
+            return (
+              <motion.div
+                key={plan.id}
+                whileHover={{ scale: isDisabled ? 1 : 1.03 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                className={`relative rounded-2xl ${bgClass} border p-6 shadow-lg flex flex-col h-full ${
+                  isDisabled ? 'opacity-75' : ''
+                }`}
               >
-                {loading && selectedPlan === plan.id 
-                  ? 'Loading...' 
-                  : plan.id === 'custom' 
-                    ? 'Schedule Consultation' 
-                    : 'Subscribe Now'}
-              </motion.button>
-            </motion.div>
-          ))}
+                {plan.popular && (
+                  <div className="absolute -top-3 left-0 right-0 flex justify-center">
+                    <span className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                {planStatus === 'current' && (
+                  <div className="absolute -top-3 left-0 right-0 flex justify-center">
+                    <span className="bg-primary-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+                      Current Plan
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className={`p-2 rounded-lg bg-gradient-to-r ${plan.color} text-white`}>
+                    {plan.icon}
+                  </div>
+                  <h3 className={`text-xl font-bold ${textClass}`}>{plan.name}</h3>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex items-baseline">
+                    <span className={`text-3xl font-extrabold ${textClass}`}>{plan.price}</span>
+                    <span className={`ml-2 ${textMutedClass}`}>{plan.period}</span>
+                  </div>
+                  <p className={`mt-2 ${textMutedClass}`}>{plan.description}</p>
+                </div>
+                
+                <div className="flex-grow">
+                  <ul className="space-y-3 mb-6">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <CheckIcon className="flex-shrink-0 w-5 h-5 text-primary-500 mt-0.5" />
+                        <span className={`ml-3 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                <motion.button
+                  whileHover={{ scale: isDisabled ? 1 : 1.05 }}
+                  whileTap={{ scale: isDisabled ? 1 : 0.95 }}
+                  onClick={() => handlePlanSelect(plan.id)}
+                  disabled={loading || isDisabled}
+                  className={`mt-auto w-full px-4 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 ${
+                    isDisabled
+                      ? `border ${borderClass} ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} cursor-not-allowed`
+                      : plan.id === 'custom' 
+                        ? `border ${borderClass} ${theme === 'dark' ? 'text-white' : 'text-gray-800'} ${hoverBgClass}` 
+                        : 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white hover:opacity-90'
+                  }`}
+                >
+                  {loading && selectedPlan === plan.id 
+                    ? 'Loading...' 
+                    : getPlanButtonText(plan.id)}
+                </motion.button>
+              </motion.div>
+            );
+          })}
         </div>
 
-        {/* Free Demo Call Section */}
-        <div className="mt-16 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className={`p-8 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 border ${borderClass}`}
-          >
-            <h2 className={`text-2xl font-bold mb-4 ${textClass}`}>Try Before You Buy</h2>
-            <p className={`mb-6 max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-              Not sure which plan is right for you? Book a free 30-minute demo call with our team. 
-              We'll show you exactly how VocalHost can transform your business and answer all your questions.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.open(CALENDLY_URL, '_blank')}
-              className="px-8 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center justify-center mx-auto space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>Book Free 30-Min Demo Call</span>
-            </motion.button>
-          </motion.div>
+        {/* Features Comparison */}
+        <div className="mt-16">
+          <h2 className={`text-2xl font-bold mb-8 text-center ${textClass}`}>Feature Comparison</h2>
+          
+          <div className={`rounded-2xl ${bgClass} border p-8 shadow-lg overflow-x-auto`}>
+            <table className="w-full">
+              <thead>
+                <tr className={`border-b ${borderClass}`}>
+                  <th className={`text-left py-4 px-4 ${textClass}`}>Feature</th>
+                  <th className={`text-center py-4 px-4 ${textClass}`}>Basic</th>
+                  <th className={`text-center py-4 px-4 ${textClass}`}>Pro</th>
+                  <th className={`text-center py-4 px-4 ${textClass}`}>Custom</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className={`border-b ${borderClass}`}>
+                  <td className={`py-4 px-4 ${textClass}`}>Voice Assistants</td>
+                  <td className="text-center py-4 px-4">1</td>
+                  <td className="text-center py-4 px-4">3</td>
+                  <td className="text-center py-4 px-4">Unlimited</td>
+                </tr>
+                <tr className={`border-b ${borderClass}`}>
+                  <td className={`py-4 px-4 ${textClass}`}>WhatsApp Integration</td>
+                  <td className="text-center py-4 px-4">
+                    <LockClosedIcon className={`w-5 h-5 mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
+                  </td>
+                  <td className="text-center py-4 px-4">
+                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
+                  </td>
+                  <td className="text-center py-4 px-4">
+                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr className={`border-b ${borderClass}`}>
+                  <td className={`py-4 px-4 ${textClass}`}>CRM Integration</td>
+                  <td className="text-center py-4 px-4">
+                    <LockClosedIcon className={`w-5 h-5 mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
+                  </td>
+                  <td className="text-center py-4 px-4">
+                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
+                  </td>
+                  <td className="text-center py-4 px-4">
+                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
+                  </td>
+                </tr>
+                <tr>
+                  <td className={`py-4 px-4 ${textClass}`}>Analytics</td>
+                  <td className="text-center py-4 px-4">Today only</td>
+                  <td className="text-center py-4 px-4">30 days</td>
+                  <td className="text-center py-4 px-4">Unlimited</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* FAQ Section */}
@@ -321,75 +452,6 @@ const SubscriptionPlans = () => {
             </div>
           </div>
         </div>
-
-        {/* Testimonials */}
-        <div className="mt-12">
-          <h2 className={`text-2xl font-bold mb-8 text-center ${textClass}`}>What Our Customers Say</h2>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: "VocalHost has transformed how we handle appointments. Our clients love the natural voice experience.",
-                author: "Sarah Johnson",
-                company: "Wellness Clinic"
-              },
-              {
-                quote: "The Pro plan gives us everything we need for our three locations. Setup was incredibly simple.",
-                author: "Michael Chen",
-                company: "Urban Salon Group"
-              },
-              {
-                quote: "The custom solution provided by VocalHost has helped us scale our appointment system nationally.",
-                author: "Rebecca Williams",
-                company: "National Health Services"
-              }
-            ].map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 * index }}
-                className={`p-6 rounded-xl ${bgClass} border shadow-lg`}
-              >
-                <div className="flex mb-4">
-                  {Array(5).fill(0).map((_, i) => (
-                    <StarIcon key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className={`mb-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                  "{testimonial.quote}"
-                </p>
-                <div>
-                  <p className={`font-semibold ${textClass}`}>{testimonial.author}</p>
-                  <p className={textMutedClass}>{testimonial.company}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="mt-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className={`p-8 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 border ${borderClass}`}
-          >
-            <h2 className={`text-2xl font-bold mb-4 ${textClass}`}>Ready to elevate your business?</h2>
-            <p className={`mb-6 max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-              Get started today and experience the power of VocalHost's AI voice assistants for your business.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handlePlanSelect('pro')}
-              className="px-8 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
-            >
-              Get Started Now
-            </motion.button>
-          </motion.div>
-        </div>
       </motion.div>
 
       {/* Confirmation Modal */}
@@ -406,4 +468,4 @@ const SubscriptionPlans = () => {
   );
 };
 
-export default SubscriptionPlans; 
+export default SubscriptionPlans;

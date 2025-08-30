@@ -54,7 +54,7 @@ class User(db.Model):
         if plan == "basic":
             return {
                 "max_agents": 1,
-                "allowed_addons": ["voice", "chat"]
+                "allowed_addons": ["voice", "booking"]
             }
         elif plan == "pro":
             return {

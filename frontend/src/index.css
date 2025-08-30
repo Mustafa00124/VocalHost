@@ -167,7 +167,7 @@ button svg, a svg, .icon, img {
 
 /* Button styles for light mode */
 .light .bg-gradient-to-r.from-primary-500.to-secondary-500 {
-  background: linear-gradient(to right, #0ea5e9, #a855f7);
+  background: linear-gradient(to right, #452e81, #3790d6);
   color: white;
 }
 
@@ -212,7 +212,7 @@ button svg, a svg, .icon, img {
 
 /* Create Assistant title in light mode */
 .light h1.bg-gradient-to-r.bg-clip-text.text-transparent {
-  background-image: linear-gradient(to right, #0284c7, #a21caf);
+  background-image: linear-gradient(to right, #452e81 , #3790d6);
 }
 
 /* Mobile responsive adjustments */

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { PlusIcon, MicrophoneIcon,  ClockIcon, CalendarIcon, PhoneIcon, PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MicrophoneIcon,  ClockIcon, CalendarIcon, PhoneIcon, PencilIcon, CheckIcon, XMarkIcon, StarIcon, SparklesIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { LeftFloatingElements, RightFloatingElements } from '../components/FloatingElements';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Flag for development mode - replace process.env reference
 const isDevelopment = false; // Set to true for debugging
@@ -38,13 +39,23 @@ interface AssistantUpdatePayload {
   voice_type?: "male" | "female";
 }
 
+interface SubscriptionStatus {
+  plan: string;
+  subscription_status: string;
+  max_agents: number;
+  allowed_addons: string[];
+  can_create_agent: boolean;
+}
+
 const Dashboard = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
 
   // Check for a newly created assistant from navigation state
   useEffect(() => {
@@ -92,7 +103,7 @@ const Dashboard = () => {
         
         console.log("Fetching assistants for user ID:", userId);
         
-        const response = await fetch(`${BASE_URL}/api/assistants?user_id=${userId}`, {
+        const response = await fetch(`${BASE_URL}/api/my-agents`, {
           credentials: 'include' // Include credentials for authentication
         });
         
@@ -105,8 +116,8 @@ const Dashboard = () => {
         const data = await response.json();
         console.log("API response data:", data);
         
-        if (data.assistants && Array.isArray(data.assistants)) {
-          const transformedAssistants = data.assistants.map((assistant: any) => ({
+        if (data.agents && Array.isArray(data.agents)) {
+          const transformedAssistants = data.agents.map((assistant: any) => ({
             ...assistant,
             status: assistant.status || 'active'
           }));
@@ -115,6 +126,26 @@ const Dashboard = () => {
             const existingIds = new Set(prev.map(a => a.id));
             const uniqueNewAssistants = transformedAssistants.filter((a: Assistant) => !existingIds.has(a.id));
             return [...prev, ...uniqueNewAssistants];
+          });
+        }
+        
+        // Set subscription status from the same API call
+        if (data.user_info) {
+          setSubscriptionStatus({
+            plan: data.user_info.plan || 'none',
+            subscription_status: data.user_info.subscription_status || 'inactive',
+            max_agents: data.user_info.max_agents || 0,
+            allowed_addons: data.user_info.allowed_addons || [],
+            can_create_agent: data.user_info.can_create_agent || false
+          });
+        } else {
+          // If no user_info, set default no-subscription status
+          setSubscriptionStatus({
+            plan: 'none',
+            subscription_status: 'inactive',
+            max_agents: 0,
+            allowed_addons: [],
+            can_create_agent: false
           });
         }
       } catch (err) {
@@ -161,6 +192,169 @@ const Dashboard = () => {
             <span>Create New</span>
           </Link>
         </div>
+
+        {/* Fancy Subscription Status Display */}
+        {subscriptionStatus && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className={`relative overflow-hidden rounded-2xl p-6 ${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            } border shadow-lg`}
+          >
+            {/* Background Gradient */}
+            <div className={`absolute inset-0 opacity-10 ${
+              subscriptionStatus.plan === 'pro' 
+                ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600'
+                : subscriptionStatus.plan === 'basic'
+                ? 'bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600'
+                : 'bg-gradient-to-r from-gray-500 to-gray-600'
+            }`}></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-4">
+                  {/* Plan Icon */}
+                  <div className={`p-3 rounded-xl ${
+                    subscriptionStatus.plan === 'pro'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                      : subscriptionStatus.plan === 'basic'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                      : 'bg-gradient-to-r from-gray-500 to-gray-600'
+                  } text-white`}>
+                    {subscriptionStatus.plan === 'pro' ? (
+                      <TrophyIcon className="w-6 h-6" />
+                    ) : subscriptionStatus.plan === 'basic' ? (
+                      <StarIcon className="w-6 h-6" />
+                    ) : (
+                      <SparklesIcon className="w-6 h-6" />
+                    )}
+                  </div>
+                  
+                  {/* Plan Details */}
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                        {subscriptionStatus.plan === 'none' ? 'No Subscription' : 
+                         `${subscriptionStatus.plan.charAt(0).toUpperCase() + subscriptionStatus.plan.slice(1)} Plan`}
+                      </h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        subscriptionStatus.subscription_status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {subscriptionStatus.subscription_status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {subscriptionStatus.plan === 'pro' && 'Advanced AI assistants with premium features'}
+                      {subscriptionStatus.plan === 'basic' && 'Essential AI assistant for your business'}
+                      {subscriptionStatus.plan === 'none' && 'Subscribe to start creating AI assistants'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Manage Subscription Button */}
+                <div className="flex space-x-2">
+                  {subscriptionStatus.subscription_status === 'active' ? (
+                    <Link
+                      to="/plans"
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        theme === 'dark'
+                          ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                      }`}
+                    >
+                      Manage Plan
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/plans"
+                      className="px-4 py-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+                    >
+                      Subscribe Now
+                    </Link>
+                  )}
+                </div>
+              </div>
+              
+              {/* Usage Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Agents Usage */}
+                <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                      AI Assistants
+                    </span>
+                    <MicrophoneIcon className="w-4 h-4 text-primary-400" />
+                  </div>
+                  <div className="flex items-baseline space-x-1">
+                    <span className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      {assistants.length}
+                    </span>
+                    <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                      / {subscriptionStatus.max_agents}
+                    </span>
+                  </div>
+                  {/* Progress Bar */}
+                  <div className={`w-full h-2 rounded-full mt-2 ${theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'}`}>
+                    <div 
+                      className="h-2 rounded-full bg-gradient-to-r from-primary-400 to-secondary-400 transition-all duration-500"
+                      style={{ width: `${Math.min((assistants.length / subscriptionStatus.max_agents) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {/* Features */}
+                <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Features
+                    </span>
+                    <SparklesIcon className="w-4 h-4 text-primary-400" />
+                  </div>
+                  <div className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                    {subscriptionStatus.allowed_addons.length}
+                  </div>
+                  <div className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {subscriptionStatus.allowed_addons.includes('chat') ? 'Pro Features' : 'Basic Features'}
+                  </div>
+                </div>
+                
+                {/* Quick Actions */}
+                <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Quick Actions
+                    </span>
+                    <PlusIcon className="w-4 h-4 text-primary-400" />
+                  </div>
+                  <div className="space-y-2">
+                    {subscriptionStatus.can_create_agent ? (
+                      <Link
+                        to="/create"
+                        className="block text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                      >
+                        + Create Assistant
+                      </Link>
+                    ) : (
+                      <span className={`block text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Upgrade to create more
+                      </span>
+                    )}
+                    <Link
+                      to="/plans"
+                      className="block text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                    >
+                      View Plans
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-8">

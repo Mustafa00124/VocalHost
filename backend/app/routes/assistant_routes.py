@@ -513,7 +513,7 @@ def get_my_agents():
         agents_data.append(agent_data)
 
     return jsonify({
-        "user": user_info,
+        "user_info": user_info,
         "agents": agents_data,
         "total_agents": len(agents_data)
     }), 200
