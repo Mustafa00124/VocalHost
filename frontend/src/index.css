@@ -157,6 +157,7 @@ button svg, a svg, .icon, img {
   border-color: #0ea5e9;
   outline: none;
   ring-color: #38bdf8;
+  /* box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); */
 }
 
 /* Card styles for light mode */
