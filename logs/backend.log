@@ -1,0 +1,20 @@
+/Users/mustafasiddiqui/Dev/VocalHost/backend/app/services/rag.py:21: UserWarning: Failed to obtain server version. Unable to check client-server compatibility. Set check_compatibility=False to skip version check.
+  _qdrant        = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+/Users/mustafasiddiqui/Dev/VocalHost/backend/app/services/rag_search.py:14: UserWarning: Failed to obtain server version. Unable to check client-server compatibility. Set check_compatibility=False to skip version check.
+  _qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+/Users/mustafasiddiqui/Dev/VocalHost/backend/app/services/rag.py:21: UserWarning: Failed to obtain server version. Unable to check client-server compatibility. Set check_compatibility=False to skip version check.
+  _qdrant        = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+/Users/mustafasiddiqui/Dev/VocalHost/backend/app/services/rag_search.py:14: UserWarning: Failed to obtain server version. Unable to check client-server compatibility. Set check_compatibility=False to skip version check.
+  _qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 891-926-516
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

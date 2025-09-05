@@ -323,4 +323,202 @@ select {
 .light textarea:focus {
   border-color: #0ea5e9;
   box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2);
+}
+
+/* ===== BUTTON TEXT READABILITY OVERRIDES ===== */
+/* Ensure all buttons have proper text contrast regardless of background */
+
+/* Primary gradient buttons - force white text */
+.bg-gradient-to-r.from-primary-500.to-secondary-500,
+.bg-gradient-to-r.from-primary-400.to-secondary-400,
+.bg-gradient-to-r.from-primary-500.to-secondary-500:hover,
+.bg-gradient-to-r.from-primary-400.to-secondary-400:hover {
+  color: #ffffff !important;
+}
+
+/* Primary solid buttons - force white text */
+.bg-primary-500,
+.bg-primary-600,
+.bg-primary-700,
+.bg-primary-800,
+.bg-primary-900,
+.bg-primary-500:hover,
+.bg-primary-600:hover,
+.bg-primary-700:hover,
+.bg-primary-800:hover,
+.bg-primary-900:hover {
+  color: #ffffff !important;
+}
+
+/* Secondary solid buttons - force white text */
+.bg-secondary-500,
+.bg-secondary-600,
+.bg-secondary-700,
+.bg-secondary-800,
+.bg-secondary-900,
+.bg-secondary-500:hover,
+.bg-secondary-600:hover,
+.bg-secondary-700:hover,
+.bg-secondary-800:hover,
+.bg-secondary-900:hover {
+  color: #ffffff !important;
+}
+
+/* Purple gradient buttons - force white text */
+.bg-gradient-to-r.from-purple-500.to-pink-500,
+.bg-gradient-to-r.from-purple-600.to-pink-600,
+.bg-gradient-to-r.from-purple-500.to-pink-500:hover,
+.bg-gradient-to-r.from-purple-600.to-pink-600:hover {
+  color: #ffffff !important;
+}
+
+/* Any button with dark backgrounds - force white text */
+button[class*="bg-primary"],
+button[class*="bg-secondary"],
+button[class*="bg-purple"],
+button[class*="bg-pink"],
+button[class*="bg-indigo"],
+button[class*="bg-violet"],
+button[class*="bg-slate-800"],
+button[class*="bg-slate-900"],
+button[class*="bg-gray-800"],
+button[class*="bg-gray-900"],
+button[class*="bg-zinc-800"],
+button[class*="bg-zinc-900"],
+button[class*="bg-neutral-800"],
+button[class*="bg-neutral-900"] {
+  color: #ffffff !important;
+}
+
+/* Hover states for dark buttons */
+button[class*="bg-primary"]:hover,
+button[class*="bg-secondary"]:hover,
+button[class*="bg-purple"]:hover,
+button[class*="bg-pink"]:hover,
+button[class*="bg-indigo"]:hover,
+button[class*="bg-violet"]:hover,
+button[class*="bg-slate-800"]:hover,
+button[class*="bg-slate-900"]:hover,
+button[class*="bg-gray-800"]:hover,
+button[class*="bg-gray-900"]:hover,
+button[class*="bg-zinc-800"]:hover,
+button[class*="bg-zinc-900"]:hover,
+button[class*="bg-neutral-800"]:hover,
+button[class*="bg-neutral-900"]:hover {
+  color: #ffffff !important;
+}
+
+/* Disabled states for dark buttons */
+button[class*="bg-primary"]:disabled,
+button[class*="bg-secondary"]:disabled,
+button[class*="bg-purple"]:disabled,
+button[class*="bg-pink"]:disabled,
+button[class*="bg-indigo"]:disabled,
+button[class*="bg-violet"]:disabled,
+button[class*="bg-slate-800"]:disabled,
+button[class*="bg-slate-900"]:disabled,
+button[class*="bg-gray-800"]:disabled,
+button[class*="bg-gray-900"]:disabled,
+button[class*="bg-zinc-800"]:disabled,
+button[class*="bg-zinc-900"]:disabled,
+button[class*="bg-neutral-800"]:disabled,
+button[class*="bg-neutral-900"]:disabled {
+  color: #ffffff !important;
+  opacity: 0.6;
+}
+
+/* Focus states for dark buttons */
+button[class*="bg-primary"]:focus,
+button[class*="bg-secondary"]:focus,
+button[class*="bg-purple"]:focus,
+button[class*="bg-pink"]:focus,
+button[class*="bg-indigo"]:focus,
+button[class*="bg-violet"]:focus,
+button[class*="bg-slate-800"]:focus,
+button[class*="bg-slate-900"]:focus,
+button[class*="bg-gray-800"]:focus,
+button[class*="bg-gray-900"]:focus,
+button[class*="bg-zinc-800"]:focus,
+button[class*="bg-zinc-900"]:focus,
+button[class*="bg-neutral-800"]:focus,
+button[class*="bg-neutral-900"]:focus {
+  color: #ffffff !important;
+}
+
+/* Active states for dark buttons */
+button[class*="bg-primary"]:active,
+button[class*="bg-secondary"]:active,
+button[class*="bg-purple"]:active,
+button[class*="bg-pink"]:active,
+button[class*="bg-indigo"]:active,
+button[class*="bg-violet"]:active,
+button[class*="bg-slate-800"]:active,
+button[class*="bg-slate-900"]:active,
+button[class*="bg-gray-800"]:active,
+button[class*="bg-gray-900"]:active,
+button[class*="bg-zinc-800"]:active,
+button[class*="bg-zinc-900"]:active,
+button[class*="bg-neutral-800"]:active,
+button[class*="bg-neutral-900"]:active {
+  color: #ffffff !important;
+}
+
+/* Specific overrides for common button patterns */
+.btn,
+.button,
+[role="button"] {
+  /* Ensure text is always readable */
+  color: inherit;
+}
+
+/* Override any text color classes on buttons with dark backgrounds */
+button.bg-primary-500 .text-gray-900,
+button.bg-primary-600 .text-gray-900,
+button.bg-primary-700 .text-gray-900,
+button.bg-primary-800 .text-gray-900,
+button.bg-primary-900 .text-gray-900,
+button.bg-secondary-500 .text-gray-900,
+button.bg-secondary-600 .text-gray-900,
+button.bg-secondary-700 .text-gray-900,
+button.bg-secondary-800 .text-gray-900,
+button.bg-secondary-900 .text-gray-900 {
+  color: #ffffff !important;
+}
+
+/* Ensure button text in spans and divs inside buttons is also white */
+button[class*="bg-primary"] span,
+button[class*="bg-primary"] div,
+button[class*="bg-secondary"] span,
+button[class*="bg-secondary"] div,
+button[class*="bg-purple"] span,
+button[class*="bg-purple"] div,
+button[class*="bg-pink"] span,
+button[class*="bg-pink"] div {
+  color: #ffffff !important;
+}
+
+/* Light mode specific button overrides */
+.light button[class*="bg-primary"],
+.light button[class*="bg-secondary"],
+.light button[class*="bg-purple"],
+.light button[class*="bg-pink"] {
+  color: #ffffff !important;
+}
+
+.light button[class*="bg-primary"]:hover,
+.light button[class*="bg-secondary"]:hover,
+.light button[class*="bg-purple"]:hover,
+.light button[class*="bg-pink"]:hover {
+  color: #ffffff !important;
+}
+
+/* Ensure gradient buttons maintain white text in both themes */
+.bg-gradient-to-r.from-primary-500.to-secondary-500,
+.bg-gradient-to-r.from-primary-400.to-secondary-400 {
+  color: #ffffff !important;
+}
+
+.light .bg-gradient-to-r.from-primary-500.to-secondary-500,
+.light .bg-gradient-to-r.from-primary-400.to-secondary-400 {
+  color: #ffffff !important;
 } 

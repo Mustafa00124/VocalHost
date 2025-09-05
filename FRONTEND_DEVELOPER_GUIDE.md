@@ -9,26 +9,28 @@ This is a **React + TypeScript** frontend application for an AI Voice Assistant 
 - **Frontend Framework**: React 18.2.0 with TypeScript
 - **Build Tool**: Vite 5.1.0 for fast development and optimized builds
 - **Styling**: Tailwind CSS 3.4.1 with dark/light theme support
-- **State Management**: React Context API (AuthContext, ThemeContext)
+- **State Management**: React Context API (AuthContext, ThemeContext, CreateAssistantContext)
 - **Routing**: React Router DOM 6.22.1 with protected routes
-- **Animations**: Framer Motion 11.18.2 for smooth transitions
+- **Animations**: Framer Motion 11.18.2 for smooth transitions and stepper animations
 - **HTTP Client**: Fetch API with credentials support
 - **Payment Processing**: Stripe Checkout integration
 - **UI Components**: Heroicons, custom components with Headless UI patterns
-- **Forms**: Native form handling with TypeScript validation
+- **Forms**: Multi-step form handling with TypeScript validation and stepper navigation
 - **Deployment**: Vercel with environment variable management
 
 ## 🏛️ Architecture Overview
 
 The application follows a **modern React architecture** with:
-- **Context-based state management** for authentication and theming
+- **Context-based state management** for authentication, theming, and multi-step forms
 - **Protected route system** for subscription-based access control
+- **Multi-step stepper flows** with guided user experiences and live previews
 - **API-first design** with comprehensive error handling
 - **Responsive design** with mobile-first Tailwind CSS approach
 - **Dark/Light theme system** with user preference persistence
 - **Google OAuth integration** with secure session management
 - **Stripe subscription management** with customer portal access
 - **Real-time data updates** through API polling and state management
+- **Comprehensive button text readability** with CSS overrides for accessibility
 
 ## 📱 Application Flow & Page Structure
 
@@ -143,62 +145,159 @@ interface AssistantCard {
 - Real-time updates when returning from assistant creation via navigation state
 - Subscription status caching for performance optimization
 
-### 4. **Create Assistant Page** (`/create` route) - AI Configuration
+### 4. **Create Assistant Page** (`/create` route) - Multi-Step AI Configuration
 
-**Purpose**: Comprehensive assistant creation with subscription awareness
+**Purpose**: Comprehensive assistant creation with guided multi-step stepper flow
 **Access**: Protected (requires authentication)
 
-**Form Sections**:
+**New Multi-Step Architecture**:
 
-#### Basic Information
+#### Step 1: Assistant Registration (Identity Layer)
 ```typescript
-interface AssistantForm {
+interface AssistantData {
   name: string;                   // Assistant name
   businessName: string;          // Business/company name
-  businessDescription: string;   // Detailed description for AI training
-  voiceType: "male" | "female"; // Voice selection
+  role: AssistantRole;           // Receptionist, Support Agent, Sales Rep, Advanced CRM
+  avatar: string;                // Selected avatar from predefined options
+  language: string;              // Language selection
+  locale: string;                // Locale/region selection
 }
+
+type AssistantRole = 'receptionist' | 'support_agent' | 'sales_rep' | 'advanced_crm';
 ```
 
-#### Feature Selection (Plan-Dependent)
-- **Voice Calls**: Always included, core feature
-- **Booking System**: Basic plan and above
-- **WhatsApp Chat**: Pro plan only (shows locked state for Basic users)
-- **CRM Integration**: Pro plan only
-- **Analytics**: Pro plan only
+**Role-Based Default Features**:
+- **Receptionist**: Calls + Booking (basic features)
+- **Support Agent**: Calls + Booking + Email Replies
+- **Sales Rep**: Calls + Booking + CRM + Analytics
+- **Advanced CRM**: All features unlocked
 
-#### File Upload System
-- **Supported Formats**: PDF, TXT, MD files for business knowledge
-- **Purpose**: Business knowledge for AI training (RAG system)
-- **Visual Interface**: Drag-and-drop with file preview and validation
-- **Validation**: File type and size checking with user feedback
-
-#### Subscription Gate Integration
+#### Step 2: Feature Selection (Plan-Dependent)
 ```typescript
-// Subscription checking before creation
-if (!subscriptionStatus?.can_create_agent) {
-  return <SubscriptionUpgradePrompt />;
+interface Feature {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  required: boolean;             // Always included with role
+  available: boolean;            // Available with current plan
+  locked: boolean;               // Requires Pro plan
+}
+
+interface SelectedFeatures {
+  [featureId: string]: boolean;  // Feature toggle states
 }
 ```
+
+**Dynamic Feature Cards**:
+- **Role-Based Defaults**: Each role preloads appropriate feature bundle
+- **Plan-Aware Display**: Features show locked state with "PRO" badges for Basic users
+- **Visual Indicators**: Enabled features highlighted, locked features grayed out
+- **Feature Categories**: Calls, SMS, WhatsApp, Email, Booking, CRM, Analytics
+
+#### Step 3: Voice & Behavior Setup
+```typescript
+interface VoiceSettings {
+  voiceType: 'basic' | 'premium';
+  voiceId: string;               // Specific voice selection
+  personality: PersonalityPreset;
+  customRules: ResponseRule[];   // Edge-case response rules
+  knowledgeSources: KnowledgeSource[]; // Documents and URLs
+}
+
+interface ResponseRule {
+  id: string;
+  trigger: string;               // When to apply this rule
+  response: string;              // Custom response text
+}
+
+interface KnowledgeSource {
+  id: string;
+  type: 'document' | 'url';
+  name: string;
+  content?: File;                // For uploaded files
+  url?: string;                  // For URL sources
+}
+```
+
+**Voice Selection**:
+- **Basic Voices**: Standard quality included in all plans
+- **Premium Voices**: High-quality voices for Pro users
+- **Voice Preview**: Audio samples for voice selection
+- **Personality Presets**: Friendly, Formal, Neutral, Custom
+
+**Knowledge Base Integration**:
+- **Document Upload**: PDF files for business knowledge (RAG system)
+- **URL Sources**: Web pages and documents via URL
+- **File Management**: Add, edit, remove knowledge sources
+- **Validation**: File type and size checking
+
+#### Live Preview Card (Persistent)
+```typescript
+interface PreviewData {
+  avatar: string;
+  name: string;
+  role: AssistantRole;
+  enabledFeatures: string[];
+  lockedFeatures: string[];
+  voice: string;
+}
+```
+
+**Real-time Updates**:
+- **Live Preview**: Updates as user progresses through steps
+- **Feature Status**: Shows enabled/locked features with icons
+- **Role Badge**: Displays selected role with appropriate styling
+- **Voice Indicator**: Shows selected voice type
+
+#### Context-Based State Management
+```typescript
+interface CreateAssistantContextType {
+  // Step 1 data
+  assistantData: AssistantData;
+  setAssistantData: (data: AssistantData) => void;
+  
+  // Step 2 data
+  selectedFeatures: SelectedFeatures;
+  setSelectedFeatures: (features: SelectedFeatures) => void;
+  
+  // Step 3 data
+  voiceSettings: VoiceSettings;
+  setVoiceSettings: (settings: VoiceSettings) => void;
+  
+  // Helper functions
+  getCurrentRole: () => AssistantRole;
+  canUseFeature: (featureId: string) => boolean;
+  getPreviewData: () => PreviewData;
+}
+```
+
+**Stepper Navigation**:
+- **Progress Indicator**: Visual stepper with step descriptions
+- **Validation**: Each step validates before allowing progression
+- **Back/Next**: Smooth navigation between steps
+- **Form Persistence**: Data maintained across step navigation
 
 **Backend Integration**:
 ```typescript
-// Main creation endpoint
+// Enhanced creation endpoint
 POST /api/register/assistant
 Content-Type: multipart/form-data
 
 FormData includes:
-- user_id, assistant_name, business_name, business_description
-- voice_type, enabled_features (JSON array)
-- files[] (optional business documents)
+- assistantData: JSON string of Step 1 data
+- selectedFeatures: JSON string of Step 2 data  
+- voiceSettings: JSON string of Step 3 data
+- files[]: Knowledge source documents
 ```
 
 **Success Flow**:
-1. Form submission with comprehensive validation
-2. Loading state with progress indication
-3. Backend processing (may take time for large files)
-4. Success modal with assistant details and next steps
-5. Navigation to dashboard with new assistant state
+1. Multi-step form completion with validation
+2. Comprehensive data submission with all steps
+3. Loading state with progress indication
+4. Backend processing (may take time for large files)
+5. Success modal with assistant details and next steps
+6. Navigation to dashboard with new assistant state
 
 ### 5. **Schedule Management Page** (`/schedule` route) - Appointment System
 
@@ -394,6 +493,7 @@ interface User {
 **Context Providers**:
 - `AuthProvider`: User authentication, session management, and logout functionality
 - `ThemeProvider`: Dark/light theme with localStorage persistence
+- `CreateAssistantProvider`: Multi-step form state management with live preview updates
 
 **Local State Management**:
 - **Component State**: Page-specific data (assistants, bookings, subscriptions)
@@ -541,6 +641,53 @@ const themeClasses = {
 - **Button Press**: Tactile feedback with scale animations (`whileTap={{ scale: 0.95 }}`)
 - **Loading States**: Skeleton screens and progress indicators
 
+### Button Text Readability System
+
+**Comprehensive Button Overrides**:
+The application includes extensive CSS overrides to ensure button text readability across all themes and color combinations.
+
+**Key Features**:
+- **White Text on Dark Backgrounds**: All buttons with dark/purple backgrounds force `color: #ffffff !important`
+- **Comprehensive Coverage**: Covers all button states (hover, focus, active, disabled)
+- **Theme Consistency**: Works across both light and dark themes
+- **Gradient Support**: Special handling for gradient buttons with proper contrast
+
+**CSS Override Patterns**:
+```css
+/* Primary gradient buttons - force white text */
+.bg-gradient-to-r.from-primary-500.to-secondary-500,
+.bg-gradient-to-r.from-primary-400.to-secondary-400 {
+  color: #ffffff !important;
+}
+
+/* Any button with dark backgrounds - force white text */
+button[class*="bg-primary"],
+button[class*="bg-secondary"],
+button[class*="bg-purple"],
+button[class*="bg-pink"] {
+  color: #ffffff !important;
+}
+
+/* Nested element coverage */
+button[class*="bg-primary"] span,
+button[class*="bg-primary"] div {
+  color: #ffffff !important;
+}
+```
+
+**Supported Button Types**:
+- Primary/Secondary solid buttons (all shades 500-900)
+- Gradient buttons (primary-to-secondary, purple-to-pink)
+- Dark background buttons (slate, gray, zinc, neutral 800+)
+- All interactive states (hover, focus, active, disabled)
+- Nested elements (spans, divs within buttons)
+
+**Benefits**:
+- **Accessibility**: Ensures proper contrast ratios for all button text
+- **Consistency**: Uniform text color across all dark button variants
+- **Maintainability**: Centralized CSS overrides prevent individual component fixes
+- **Theme Safety**: Works with existing color palette without modification
+
 ## 🔧 Environment Variables
 
 The frontend expects these environment variables:
@@ -550,6 +697,24 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key
 ```
 
 ## 📱 Frontend UI Components
+
+### Multi-Step Stepper Components
+
+#### CreateAssistantContext
+- **Purpose**: Centralized state management for multi-step assistant creation
+- **Features**: Step data persistence, validation helpers, live preview updates
+- **Usage**: Wraps entire CreateAssistant page for shared state access
+
+#### Step Components
+- **Step1Registration**: Assistant identity setup (name, business, role, avatar, language)
+- **Step2Features**: Dynamic feature selection with plan-aware display
+- **Step3VoiceBehavior**: Voice selection, personality, custom rules, knowledge sources
+- **PreviewCard**: Live preview component with real-time updates
+
+#### Stepper Navigation
+- **Progress Indicator**: Visual stepper with step descriptions and completion status
+- **Validation System**: Step-by-step validation before allowing progression
+- **Smooth Transitions**: Framer Motion animations between steps
 
 ### Navigation Bar Updates
 - **When Signed In**: Shows user name, email, Manage Subscription button, Sign Out
@@ -561,6 +726,7 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key
 - **User Info Display**: Name and email shown when authenticated
 - **Manage Subscription**: Direct access to Stripe Customer Portal
 - **Error Handling**: User-friendly error messages and feedback
+- **Button Text Readability**: Comprehensive CSS overrides for proper contrast
 
 ## 🚨 Error Handling
 
@@ -657,7 +823,11 @@ GET /api/auth/user/me
 1. **Landing Page**: Value proposition and feature overview with clear CTAs
 2. **Sign Up**: Google OAuth authentication with seamless redirect flow
 3. **Plan Selection**: Choose subscription tier with feature comparison
-4. **Assistant Creation**: Configure first AI assistant with guided onboarding
+4. **Assistant Creation**: Multi-step guided configuration with live preview:
+   - **Step 1**: Assistant identity setup (name, business, role, avatar)
+   - **Step 2**: Feature selection with plan-aware display and upgrade prompts
+   - **Step 3**: Voice & behavior configuration with knowledge base setup
+   - **Live Preview**: Real-time assistant preview throughout the process
 5. **Dashboard**: View created assistant and analytics with usage tips
 
 ### Existing User Management Flow
