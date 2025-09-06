@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link, Navigate } from 'react-router-dom';
-import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -47,7 +47,7 @@ const Home = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="flex gap-3 justify-center"
+          className="flex flex-col sm:flex-row gap-3 justify-center"
         >
           
           <Link
@@ -56,6 +56,16 @@ const Home = () => {
           >
             Sign In
           </Link>
+          
+          
+          <Link
+            to="/voice-test"
+            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl"
+          >
+            <MicrophoneIcon className="w-5 h-5 mr-2" />
+            Full Voice Test
+          </Link>
+          
           <motion.button
             onClick={openCalendly}
             className="px-6 py-3 border-2 border-primary-500 text-primary-500 rounded-lg font-semibold hover:bg-primary-500 hover:text-white transition-all duration-300 flex items-center shadow-lg hover:shadow-xl"

@@ -8,6 +8,7 @@ import AuthCallback from './pages/AuthCallback';
 import Schedule from './pages/Schedule';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import Dashboard from './pages/Dashboard';
+import VoiceTest from './pages/VoiceTest';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import { useTheme } from './contexts/ThemeContext';
@@ -48,6 +49,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/voice-test" element={<VoiceTest />} />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Dashboard />

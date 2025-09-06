@@ -5,6 +5,7 @@ from app.extensions import db
 from app.services.memory import save_memory_entry
 from app import sock
 from app.services.realtime_processing import CallHandler
+from app.services.business_voice_agent import BusinessVoiceTestAgent
 import asyncio
 
 voice_bp = Blueprint("voice", __name__)
@@ -84,3 +85,29 @@ def call_websocket(ws, conversation_id):
         print(f"Error in WebSocket handler: {e}")
     finally:
         active_calls.pop(conversation_id, None)
+
+@sock.route("/ws/voice-test")
+def voice_test_websocket(ws):
+    """
+    WebSocket handler for live voice testing of VocalHost's voice agent.
+    This allows users to test the voice agent directly from the web interface.
+    """
+    print("🔌 New WebSocket connection attempt to /ws/voice-test")
+    print(f"🔌 WebSocket object: {ws}")
+    print(f"🔌 WebSocket headers: {getattr(ws, 'headers', 'No headers')}")
+    
+    agent = BusinessVoiceTestAgent(websocket=ws)
+    print("🤖 BusinessVoiceTestAgent created")
+    
+    try:
+        print("🚀 Starting voice agent processing...")
+        # Run the async voice agent processing
+        asyncio.run(agent.process())
+        print("✅ Voice agent processing completed successfully")
+    except Exception as e:
+        print(f"❌ Error in voice test WebSocket handler: {e}")
+        print(f"❌ Error type: {type(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+    finally:
+        print("🔚 Voice test session ended")
