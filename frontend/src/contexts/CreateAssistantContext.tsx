@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { ASSISTANT_ROLES, AVAILABLE_FEATURES, VOICE_OPTIONS, AVATAR_OPTIONS, AvatarOption, VoiceOption } from '../constants/assistantConstants';
+import { ASSISTANT_ROLES, AVAILABLE_FEATURES, VOICE_OPTIONS, AVATAR_OPTIONS } from '../constants/assistantConstants';
+import type { VoiceOption } from '../constants/assistantConstants';
 
 // Types and Interfaces
 export interface AssistantRole {

@@ -55,11 +55,14 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const backendHost = window.location.hostname === 'localhost' ? 'localhost:5000' : window.location.host;
-      const wsUrl = `${protocol}//${backendHost}/ws/voice-test`;
+      const wsUrl = `${protocol}//${backendHost}/voice/ws/voice-test`;
+      
+      console.log('🔗 Attempting to connect to WebSocket:', wsUrl);
       
       // Check if backend is running first
       if (window.location.hostname === 'localhost' && backendHost === 'localhost:5000') {
         try {
+          console.log('🔍 Checking if backend is running...');
           const response = await fetch('http://localhost:5000');
           console.log('✅ Backend is running, status:', response.status);
         } catch (error) {
@@ -69,6 +72,7 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
         }
       }
       
+      console.log('🌐 Creating WebSocket connection...');
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -84,12 +88,14 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
             streamSid: 'test_stream_' + Date.now()
           }
         };
+        console.log('📤 Sending start message:', startMessage);
         ws.send(JSON.stringify(startMessage));
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('📨 Received WebSocket message:', data);
           handleWebSocketMessage(data);
         } catch (err) {
           console.error('❌ Error parsing WebSocket message:', err);
@@ -148,6 +154,14 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
     } else if (data.event === 'user_response_complete') {
       // User response is complete
       const finalText = (data.text ?? currentUserMessageRef.current).trim();
+      
+      // DEBUG: Always show what the frontend received from the model
+      if (finalText) {
+        console.log(`🎤 FRONTEND RECEIVED USER TRANSCRIPT: "${finalText}"`);
+      } else {
+        console.log(`🎤 FRONTEND RECEIVED USER TRANSCRIPT: "(EMPTY - no speech detected)"`);
+      }
+      
       if (finalText) {
         currentUserMessageRef.current = '';
         setCurrentUserMessage('');
@@ -306,34 +320,20 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
 
   const startListening = async () => {
     try {
+      console.log('🎤 Starting listening, current state:', { isConnected, isListening });
       setError(null);
       
       if (!isConnected) {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            sampleRate: 8000,
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true
-          } 
-        });
-        
-        streamRef.current = stream;
-        await connectWebSocket();
-        
-        setTimeout(() => {
-          if (isConnected) {
-            // Connection established, ready to start
-          }
-        }, 1000);
-        
+        console.log('❌ Not connected, cannot start listening');
+        setError('Not connected to server. Please try again.');
         return;
       }
 
+      console.log('🎤 Starting PCM16 capture...');
       await startPCM16Capture();
 
     } catch (err) {
-      console.error('Error starting microphone:', err);
+      console.error('❌ Error starting microphone:', err);
       setError('Microphone access denied. Please allow microphone access and try again.');
     }
   };
@@ -377,7 +377,7 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
   const sendTextMessage = () => {
     if (!textInput.trim()) return;
     
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && isListening) {
       const message = {
         event: 'text_input',
         text: textInput.trim()
@@ -394,44 +394,26 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
       setIsCurrentlySpeaking(false);
       speakingRef.current = false;
     } else {
-      setError('Not connected to server. Please try again.');
+      setError('Not in a call. Please start a call first.');
     }
   };
 
-  const disconnect = () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    setIsConnected(false);
-    setIsListening(false);
-    setIsSpeaking(false);
-    
-    // Auto-collapse after disconnect
-    setTimeout(() => {
-      setIsExpanded(false);
-    }, 2000);
-  };
 
   const handleTryDemo = () => {
     setIsExpanded(true);
-    if (!isConnected) {
-      connectWebSocket();
-    }
+    // Don't connect WebSocket here - only when call button is pressed
   };
 
   // Auto-collapse after inactivity
   useEffect(() => {
-    if (isExpanded && !isConnected && !isListening) {
+    if (isExpanded && !isListening) {
       const timer = setTimeout(() => {
         setIsExpanded(false);
       }, 10000); // Auto-collapse after 10 seconds of inactivity
       
       return () => clearTimeout(timer);
     }
-  }, [isExpanded, isConnected, isListening]);
+  }, [isExpanded, isListening]);
 
   // Call duration timer
   useEffect(() => {
@@ -448,27 +430,50 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
     };
   }, [isListening, callStartTime]);
 
-  const handleConnect = () => {
-    if (isConnected) {
-      disconnect();
-    } else {
-      connectWebSocket();
-    }
-  };
-
   const handleMute = () => {
-    setIsMuted(!isMuted);
+    const newMuteState = !isMuted;
+    setIsMuted(newMuteState);
+    
+    // Send mute state to backend
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const message = {
+        event: 'mute',
+        muted: newMuteState
+      };
+      wsRef.current.send(JSON.stringify(message));
+    }
   };
 
   const handleTextMode = () => {
     setIsTextMode(!isTextMode);
   };
 
-  const handleCall = () => {
+  const handleCall = async () => {
+    console.log('📞 Call button pressed, current state:', { isListening, isConnected });
+    
     if (isListening) {
+      // End call - stop listening and close WebSocket
+      console.log('🔴 Ending call...');
       stopListening();
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsConnected(false);
     } else {
-      startListening();
+      // Start call - connect WebSocket and start listening
+      console.log('🟢 Starting call...');
+      await connectWebSocket();
+      // Wait for connection to establish, then start listening
+      setTimeout(async () => {
+        console.log('⏰ Timeout reached, checking connection state:', { isConnected });
+        if (isConnected) {
+          console.log('✅ Connection established, starting listening...');
+          await startListening();
+        } else {
+          console.log('❌ Connection not established, cannot start listening');
+        }
+      }, 1000);
     }
   };
 
@@ -554,16 +559,14 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
                 {/* Status Line */}
                 <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${
-                    isConnected ? 'bg-green-500' : 'bg-red-500'
+                    isListening ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
                   <span className={`text-sm ${
                     theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    {isConnected 
-                      ? isListening 
-                        ? `Connected • ${formatDuration(callDuration)}`
-                        : 'Connected • Ready'
-                      : 'Disconnected'
+                    {isListening 
+                      ? `In Call • ${formatDuration(callDuration)}`
+                      : 'Ready to Call'
                     }
                   </span>
                 </div>
@@ -574,15 +577,18 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
                 {/* User Speaking Indicator */}
                 <div className="flex flex-col items-center space-y-1">
                   <motion.div
-                    animate={isListening ? { scale: [1, 1.3, 1] } : {}}
+                    animate={isListening && !isMuted ? { scale: [1, 1.3, 1] } : {}}
                     transition={{ duration: 0.8, repeat: Infinity }}
                     className={`w-4 h-4 rounded-full transition-all duration-300 ${
-                      isListening 
+                      isListening && !isMuted
                         ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                        : isMuted
+                        ? 'bg-red-500 shadow-lg shadow-red-500/50'
                         : 'bg-gray-400'
                     }`}
                     style={{
-                      boxShadow: isListening ? '0 0 20px rgba(34, 197, 94, 0.5)' : 'none'
+                      boxShadow: isListening && !isMuted ? '0 0 20px rgba(34, 197, 94, 0.5)' : 
+                                isMuted ? '0 0 20px rgba(239, 68, 68, 0.5)' : 'none'
                     }}
                   />
                   <span className={`text-xs font-medium ${
@@ -636,9 +642,9 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
                   />
                   <button
                     onClick={sendTextMessage}
-                    disabled={!textInput.trim() || !isConnected}
+                    disabled={!textInput.trim() || !isListening}
                     className={`p-2 rounded-full transition-all duration-200 ${
-                      textInput.trim() && isConnected
+                      textInput.trim() && isListening
                         ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
@@ -649,68 +655,56 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
               )}
 
               {/* Control Buttons */}
-              <div className="flex items-center space-x-3">
-                {/* Connect/Disconnect Button */}
+              <div className="flex items-center space-x-4">
+                {/* Call Button */}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={handleConnect}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
-                    isConnected
+                  onClick={handleCall}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
+                    isListening
                       ? 'bg-red-500 hover:bg-red-600 hover:shadow-red-500/50'
                       : 'bg-green-500 hover:bg-green-600 hover:shadow-green-500/50'
                   }`}
-                  title={isConnected ? 'Disconnect' : 'Connect'}
+                  title={isListening ? 'End Call' : 'Start Call'}
                 >
-                  <span className="text-xl">🔌</span>
+                  <span className="text-2xl">{isListening ? '📞' : '📞'}</span>
                 </motion.button>
 
-                {/* Mute/Unmute Button */}
+                {/* Mute Button */}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleMute}
+                  disabled={!isListening}
                   className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
-                    isMuted
-                      ? 'bg-gray-500 hover:bg-gray-600 hover:shadow-gray-500/50'
+                    !isListening
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : isMuted
+                      ? 'bg-red-500 hover:bg-red-600 hover:shadow-red-500/50'
                       : 'bg-blue-500 hover:bg-blue-600 hover:shadow-blue-500/50'
                   }`}
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
-                  <span className="text-xl">🎙️</span>
+                  <span className="text-xl">{isMuted ? '🔇' : '🎙️'}</span>
                 </motion.button>
 
-                {/* Text Mode Button */}
+                {/* Message Button */}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleTextMode}
+                  disabled={!isListening}
                   className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
-                    isTextMode
+                    !isListening
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : isTextMode
                       ? 'bg-purple-500 hover:bg-purple-600 hover:shadow-purple-500/50'
                       : 'bg-gray-500 hover:bg-gray-600 hover:shadow-gray-500/50'
                   }`}
                   title={isTextMode ? 'Exit Text Mode' : 'Text Mode'}
                 >
                   <span className="text-xl">💬</span>
-                </motion.button>
-
-                {/* Main Call Button */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleCall}
-                  disabled={!isConnected}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
-                    !isConnected
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : isListening
-                      ? 'bg-red-500 hover:bg-red-600 hover:shadow-red-500/50'
-                      : 'bg-green-500 hover:bg-green-600 hover:shadow-green-500/50'
-                  }`}
-                  title={isListening ? 'End Call' : 'Start Call'}
-                >
-                  <span className="text-2xl">📞</span>
                 </motion.button>
               </div>
             </motion.div>
