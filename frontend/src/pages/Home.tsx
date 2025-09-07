@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { Link, Navigate } from 'react-router-dom';
-import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import FloatingCallDock from '../components/FloatingCallDock';
 
 // Replace this URL with your actual Calendly link
 const CALENDLY_URL = "https://calendly.com/buggedbrilliance-support";
@@ -55,15 +56,6 @@ const Home = () => {
             className="inline-block px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-300 shadow-lg hover:shadow-xl"
           >
             Sign In
-          </Link>
-          
-          
-          <Link
-            to="/voice-test"
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl"
-          >
-            <MicrophoneIcon className="w-5 h-5 mr-2" />
-            Full Voice Test
           </Link>
           
           <motion.button
@@ -217,6 +209,9 @@ const Home = () => {
           />
         </div>
       </section>
+      
+      {/* Floating Call Dock */}
+      <FloatingCallDock />
     </div>
   );
 };
