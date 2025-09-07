@@ -20,6 +20,8 @@ class BusinessVoiceTestAgent:
         self.websocket = websocket
         self.openai_ws = None
         self.stream_sid = None
+        self.current_ai_transcript = ""
+        self.current_user_transcript = ""
 
     async def process(self):
         """Main processing loop for the business voice test agent."""
@@ -104,13 +106,19 @@ class BusinessVoiceTestAgent:
         async for raw in self.openai_ws:
             response = json.loads(raw)
             t = response.get("type")
+            
+            # Special debug for audio transcript events
+            if t == "response.audio_transcript.delta":
+                transcript = response.get("delta", "")
+                print(f"📝 Audio transcript delta: {transcript}")
+            elif t == "response.audio_transcript.done":
+                print("✅ Audio transcript completed")
 
             if t == "response.audio.delta" and response.get("delta"):
                 # Validate and send audio to frontend
                 try:
                     delta = response["delta"]
-                    print(f"🎵 Received audio delta, length: {len(delta)}")
-                    
+   
                     # Validate that it's proper base64
                     if isinstance(delta, str) and len(delta) > 0:
                         # Test if it's valid base64
@@ -118,8 +126,7 @@ class BusinessVoiceTestAgent:
                             # Try to decode to validate
                             import base64
                             base64.b64decode(delta, validate=True)
-                            print(f"✅ Valid base64 audio delta")
-                            
+
                             frame = {
                                 "event": "media",
                                 "streamSid": self.stream_sid,
@@ -143,6 +150,31 @@ class BusinessVoiceTestAgent:
                 # Log the response content for debugging
                 delta = response.get("delta", "")
                 print(f"AI Response: {delta}")
+                
+                # Accumulate transcript instead of sending immediately
+                if delta:
+                    self.current_ai_transcript += delta
+                    print(f"📝 Accumulated AI transcript: {self.current_ai_transcript}")
+                continue
+
+            if t == "response.done":
+                # AI response is complete, send final transcript
+                print("✅ AI response completed")
+                if self.current_ai_transcript.strip():
+                    final_message = self.current_ai_transcript.strip()
+                    print(f"🤖 AI COMPLETE MESSAGE: {final_message}")
+                    await asyncio.to_thread(self.websocket.send, json.dumps({
+                        "event": "ai_response_complete",
+                        "text": final_message
+                    }))
+                    print(f"📝 Sent final AI transcript to frontend: {final_message}")
+                else:
+                    print("🤖 AI COMPLETE MESSAGE: (empty)")
+                    await asyncio.to_thread(self.websocket.send, json.dumps({
+                        "event": "ai_response_complete"
+                    }))
+                # Reset transcript for next response
+                self.current_ai_transcript = ""
                 continue
 
             if t == "conversation.item.input_audio_transcription.completed":
@@ -150,6 +182,12 @@ class BusinessVoiceTestAgent:
                 transcript = response.get("transcript")
                 if transcript:
                     print(f"User said: {transcript}")
+                    # Send final user transcript to frontend
+                    await asyncio.to_thread(self.websocket.send, json.dumps({
+                        "event": "user_response_complete",
+                        "text": transcript
+                    }))
+                    print(f"📝 Sent final user transcript: {transcript}")
                     # Update session with new context if needed
                     await self._handle_user_input(transcript)
                 continue
@@ -180,27 +218,53 @@ class BusinessVoiceTestAgent:
             while True:
                 print("⏳ Waiting for message from frontend...")
                 raw = await asyncio.to_thread(self.websocket.receive)
-                print(f"📨 Raw message received: {raw[:100]}...")
                 
                 data = json.loads(raw)
-                print(f"📦 Parsed message: {data}")
+                if data["event"] == "media":
+                    payload_length = len(data.get("media", {}).get("payload", ""))
+                    print(f"📨 Received audio payload (length: {payload_length})")
+                else:
+                    print(f"📦 Parsed message: {data}")
 
                 if data["event"] == "media" and self.openai_ws and data.get("media", {}).get("payload"):
-                    print("🎵 Processing audio media...")
                     # Convert base64 audio to bytes
                     try:
                         audio_bytes = base64.b64decode(data["media"]["payload"])
-                        print(f"🔊 Audio bytes decoded: {len(audio_bytes)} bytes")
+                        
+                        # Only log occasionally to avoid spam
+                        if len(audio_bytes) % 2 != 0:
+                            print(f"⚠️ Audio format might not be PCM16: {len(audio_bytes)} bytes (odd number)")
                         
                         await self.openai_ws.send(json.dumps({
                             "type": "input_audio_buffer.append",
                             "audio": base64.b64encode(audio_bytes).decode('utf-8'),
                         }))
-                        print("✅ Audio sent to OpenAI")
+                        
+                        # Only log occasionally
+                        if len(audio_bytes) % 1000 == 0:  # Log every 1000th chunk
+                            print(f"✅ PCM16 audio sent to OpenAI: {len(audio_bytes)} bytes")
                     except Exception as e:
                         print(f"❌ Error processing audio: {e}")
                         import traceback
                         print(f"❌ Traceback: {traceback.format_exc()}")
+
+                elif data["event"] == "text_input":
+                    print(f"📝 Processing text input: {data.get('text', '')}")
+                    if self.openai_ws:
+                        # Send text input to OpenAI instead of audio
+                        await self.openai_ws.send(json.dumps({
+                            "type": "conversation.item.create",
+                            "item": {
+                                "type": "message",
+                                "role": "user",
+                                "content": [{
+                                    "type": "input_text",
+                                    "text": data["text"]
+                                }]
+                            }
+                        }))
+                        await self.openai_ws.send(json.dumps({"type": "response.create"}))
+                        print("✅ Text input sent to OpenAI")
 
                 elif data["event"] == "start":
                     self.stream_sid = data["start"]["streamSid"]

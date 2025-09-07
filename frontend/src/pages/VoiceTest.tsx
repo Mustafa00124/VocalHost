@@ -1,12 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MicrophoneIcon, 
-  SpeakerWaveIcon, 
-  StopIcon,
-  ArrowLeftIcon,
-  InformationCircleIcon
-} from '@heroicons/react/24/outline';
+import { motion } from 'framer-motion';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -18,11 +12,20 @@ const VoiceTest: React.FC = () => {
   const [status, setStatus] = useState('Ready to start');
   const [error, setError] = useState<string | null>(null);
   const [conversationLog, setConversationLog] = useState<Array<{type: 'user' | 'ai', message: string, timestamp: Date}>>([]);
+  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
+  const [textInput, setTextInput] = useState('');
+  const [isCurrentlySpeaking, setIsCurrentlySpeaking] = useState(false);
+  const [currentAiResponse, setCurrentAiResponse] = useState('');
+  const [currentUserMessage, setCurrentUserMessage] = useState('');
+  const [audioWorkletNode, setAudioWorkletNode] = useState<AudioWorkletNode | null>(null);
+  
+  // Use refs to avoid stale closure issues in WebSocket handler
+  const speakingRef = useRef(false);
+  const currentAiResponseRef = useRef('');
+  const currentUserMessageRef = useRef('');
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
@@ -41,7 +44,7 @@ const VoiceTest: React.FC = () => {
     };
   }, []);
 
-  const connectWebSocket = () => {
+  const connectWebSocket = async () => {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // Use backend port (5000) instead of frontend dev server port (5173)
@@ -52,19 +55,18 @@ const VoiceTest: React.FC = () => {
       console.log('🔌 Frontend: Protocol:', protocol);
       console.log('🔌 Frontend: Backend host:', backendHost);
       
-      // Check if backend is running
+      // Check if backend is running first
       if (window.location.hostname === 'localhost' && backendHost === 'localhost:5000') {
         console.log('🔍 Frontend: Checking if backend is running...');
-        fetch('http://localhost:5000')
-          .then(response => {
-            console.log('✅ Frontend: Backend is running, status:', response.status);
-          })
-          .catch(error => {
-            console.error('❌ Frontend: Backend is not running:', error);
-            setError('Backend is not running. Please start it with: cd backend && python run.py');
-            addToLog('ai', 'Error: Backend is not running. Please start it first.');
-            return;
-          });
+        try {
+          const response = await fetch('http://localhost:5000');
+          console.log('✅ Frontend: Backend is running, status:', response.status);
+        } catch (error) {
+          console.error('❌ Frontend: Backend is not running:', error);
+          setError('Backend is not running. Please start it with: cd backend && python run.py');
+          addToLog('ai', 'Error: Backend is not running. Please start it first.');
+          return;
+        }
       }
       
       const ws = new WebSocket(wsUrl);
@@ -118,13 +120,14 @@ const VoiceTest: React.FC = () => {
       ws.onerror = (error) => {
         console.error('❌ Frontend: WebSocket error:', error);
         console.error('❌ Frontend: WebSocket readyState:', ws.readyState);
-        setError('Connection error. Please try again.');
+        console.error('❌ Frontend: WebSocket URL attempted:', wsUrl);
+        setError('Connection error. Please check if backend is running on port 5000.');
         setIsConnected(false);
       };
 
     } catch (err) {
       console.error('❌ Frontend: Error connecting to WebSocket:', err);
-      console.error('❌ Frontend: Error stack:', err.stack);
+      console.error('❌ Frontend: Error stack:', (err as Error).stack);
       setError('Failed to connect. Please check your connection.');
     }
   };
@@ -134,11 +137,58 @@ const VoiceTest: React.FC = () => {
   };
 
   const handleWebSocketMessage = (data: any) => {
+    console.log('📨 Frontend: Received WebSocket message:', data.event, 'isCurrentlySpeaking:', isCurrentlySpeaking);
+    
     if (data.event === 'media' && data.media?.payload) {
       // Handle incoming audio from the AI
+      console.log('🎵 Frontend: Processing audio chunk, speakingRef.current:', speakingRef.current);
+      // Set speaking state but don't add to log - we'll only log the final response
+      if (!speakingRef.current) {
+        console.log('🗣️ Frontend: First audio chunk - setting speaking state');
+        speakingRef.current = true;
+        setIsCurrentlySpeaking(true);
+      }
       playAudioChunk(data.media.payload);
+    } else if (data.event === 'ai_transcript') {
+      // Handle AI text transcription
+      const text = data.text || '';
+      console.log('📝 Frontend: AI transcript delta:', text);
+      currentAiResponseRef.current += text;
+      setCurrentAiResponse(currentAiResponseRef.current);
+    } else if (data.event === 'user_transcript') {
+      // Handle user text transcription
+      const text = data.text || '';
+      console.log('📝 Frontend: User transcript delta:', text);
+      currentUserMessageRef.current += text;
+      setCurrentUserMessage(currentUserMessageRef.current);
+    } else if (data.event === 'ai_response_complete') {
+      // AI response is complete, add to conversation log
+      console.log('✅ Frontend: AI response complete, data:', data);
+      const finalText = (data.text ?? currentAiResponseRef.current).trim();
+      if (finalText) {
+        addToLog('ai', finalText);
+        currentAiResponseRef.current = '';
+        setCurrentAiResponse('');
+      }
+      // Reset speaking state with a delay to prevent immediate re-triggering
+      console.log('🔄 Frontend: Resetting speaking state after AI response');
+      setTimeout(() => {
+        speakingRef.current = false;
+        setIsCurrentlySpeaking(false);
+        console.log('🎤 Frontend: Microphone re-enabled after AI response');
+      }, 500);
+    } else if (data.event === 'user_response_complete') {
+      // User response is complete, add to conversation log
+      console.log('✅ Frontend: User response complete, data:', data);
+      const finalText = (data.text ?? currentUserMessageRef.current).trim();
+      if (finalText) {
+        addToLog('user', finalText);
+        currentUserMessageRef.current = '';
+        setCurrentUserMessage('');
+      }
     } else if (data.event === 'clear') {
       // Clear audio buffer
+      console.log('🧹 Frontend: Clearing audio buffer');
       if (audioElementRef.current) {
         audioElementRef.current.pause();
         audioElementRef.current.currentTime = 0;
@@ -152,29 +202,37 @@ const VoiceTest: React.FC = () => {
 
   const playAudioChunk = (audioData: string) => {
     try {
+      console.log('🎵 Frontend: playAudioChunk called, isPlayingRef.current:', isPlayingRef.current);
       // Add to queue for real-time playback
       audioQueueRef.current.push(audioData);
       
       // Start playing if not already playing
       if (!isPlayingRef.current) {
+        console.log('🚀 Frontend: Starting audio playback from playAudioChunk');
         playNextChunk();
+      } else {
+        console.log('⏸️ Frontend: Audio already playing, adding to queue');
       }
       
     } catch (err) {
-      // Silent error handling
+      console.error('❌ Frontend: Error in playAudioChunk:', err);
     }
   };
 
   const playNextChunk = async () => {
+    console.log('🎧 Frontend: playNextChunk called, queue length:', audioQueueRef.current.length, 'isCurrentlySpeaking:', isCurrentlySpeaking);
+    
     if (audioQueueRef.current.length === 0) {
+      console.log('🔚 Frontend: Audio queue empty - stopping playback (keeping isCurrentlySpeaking state)');
       isPlayingRef.current = false;
       setIsSpeaking(false);
+      // DON'T reset isCurrentlySpeaking here - only reset on ai_response_complete
       return;
     }
 
+    console.log('▶️ Frontend: Starting audio playback');
     isPlayingRef.current = true;
     setIsSpeaking(true);
-    addToLog('ai', 'Speaking...');
 
     const audioData = audioQueueRef.current.shift()!;
 
@@ -232,6 +290,107 @@ const VoiceTest: React.FC = () => {
     }
   };
 
+  const startPCM16Capture = async () => {
+    try {
+      console.log('🎤 Frontend: Starting PCM16 capture...');
+      
+      // Get microphone stream
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 8000,  // OpenAI expects 8kHz
+          channelCount: 1,    // Mono
+          echoCancellation: true,
+          noiseSuppression: true
+        } 
+      });
+      
+      console.log('✅ Frontend: Microphone stream obtained:', stream);
+      streamRef.current = stream;
+      
+      // Create AudioContext
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+          sampleRate: 8000
+        });
+      }
+      
+      console.log('🎵 Frontend: AudioContext created, sample rate:', audioContextRef.current.sampleRate);
+      
+      // Create audio source
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      
+      // Create ScriptProcessorNode for PCM16 capture
+      const bufferSize = 4096; // 4096 samples = ~512ms at 8kHz
+      const processor = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
+      
+      console.log('🎛️ Frontend: ScriptProcessor created, buffer size:', bufferSize);
+      
+      processor.onaudioprocess = (event) => {
+        // Don't capture audio if AI is speaking (prevent echo/feedback)
+        if (isSpeaking) {
+          if (Math.random() < 0.01) { // Very occasional logging
+            console.log('🔇 Frontend: Skipping audio capture - AI is speaking');
+          }
+          return;
+        }
+        
+        const inputBuffer = event.inputBuffer;
+        const inputData = inputBuffer.getChannelData(0); // Mono channel
+        
+        // Check if there's actual speech (not just silence)
+        const rms = Math.sqrt(inputData.reduce((sum, val) => sum + val * val, 0) / inputData.length);
+        const threshold = 0.01; // Adjust this threshold as needed
+        
+        if (rms < threshold) {
+          // Too quiet, skip this chunk
+          if (Math.random() < 0.01) {
+            console.log('🔇 Frontend: Skipping quiet audio chunk, RMS:', rms.toFixed(4));
+          }
+          return;
+        }
+        
+        // Convert Float32 to PCM16
+        const pcm16Data = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          // Convert from [-1, 1] to [-32768, 32767]
+          pcm16Data[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+        }
+        
+        // Only log every 10th chunk to avoid spam
+        if (Math.random() < 0.1) {
+          console.log('🎤 Frontend: Captured PCM16 chunk, samples:', pcm16Data.length, 'RMS:', rms.toFixed(4));
+        }
+        
+        // Send PCM16 data immediately
+        sendPCM16Audio(pcm16Data);
+      };
+      
+      // Connect audio nodes
+      source.connect(processor);
+      processor.connect(audioContextRef.current.destination);
+      
+      // Store processor for cleanup
+      setAudioWorkletNode(processor as any);
+      
+      setIsListening(true);
+      setStatus('Listening... Speak now');
+      
+      // Clear any previous responses
+      console.log('🎤 Frontend: Starting PCM16 recording, clearing states, isCurrentlySpeaking:', isCurrentlySpeaking);
+      currentAiResponseRef.current = '';
+      currentUserMessageRef.current = '';
+      setCurrentAiResponse('');
+      setCurrentUserMessage('');
+      setIsCurrentlySpeaking(false);
+      speakingRef.current = false;
+      
+    } catch (err) {
+      console.error('❌ Frontend: Error starting PCM16 capture:', err);
+      setError('Microphone access denied. Please allow microphone access and try again.');
+      addToLog('ai', 'Error: Microphone access denied. Please allow microphone access and try again.');
+    }
+  };
+
   const startListening = async () => {
     try {
       setError(null);
@@ -242,6 +401,7 @@ const VoiceTest: React.FC = () => {
         addToLog('user', 'Requesting microphone access...');
         
         // Get microphone permission first
+        console.log('🎤 Frontend: Requesting microphone permission...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             sampleRate: 8000,
@@ -250,6 +410,7 @@ const VoiceTest: React.FC = () => {
             noiseSuppression: true
           } 
         });
+        console.log('✅ Frontend: Microphone permission granted, stream:', stream);
         
         // Store the stream for later use
         streamRef.current = stream;
@@ -257,7 +418,7 @@ const VoiceTest: React.FC = () => {
         // Now connect to WebSocket
         setStatus('Connecting to voice agent...');
         addToLog('user', 'Connecting to voice agent...');
-        connectWebSocket();
+        await connectWebSocket();
         
         // Wait a moment for connection to establish
         setTimeout(() => {
@@ -270,41 +431,8 @@ const VoiceTest: React.FC = () => {
         return;
       }
 
-      // If already connected, start recording
-      if (!streamRef.current) {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            sampleRate: 8000,
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true
-          } 
-        });
-        streamRef.current = stream;
-      }
-      
-      const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        sendAudioToServer(audioBlob);
-      };
-
-      mediaRecorder.start(100); // Collect data every 100ms
-      setIsListening(true);
-      setStatus('Listening... Speak now');
-      addToLog('user', 'Started speaking...');
+      // If already connected, start PCM16 capture
+      await startPCM16Capture();
 
     } catch (err) {
       console.error('Error starting microphone:', err);
@@ -314,26 +442,36 @@ const VoiceTest: React.FC = () => {
   };
 
   const stopListening = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
+    console.log('🛑 Frontend: stopListening called');
+    
+    // Stop PCM16 capture
+    if (audioWorkletNode) {
+      console.log('🛑 Frontend: Disconnecting audio processor');
+      audioWorkletNode.disconnect();
+      setAudioWorkletNode(null);
     }
     
+    
+    // Stop microphone stream
     if (streamRef.current) {
+      console.log('🛑 Frontend: Stopping microphone stream');
       streamRef.current.getTracks().forEach(track => track.stop());
     }
     
     setIsListening(false);
     setStatus('Processing...');
-    addToLog('user', 'Finished speaking');
   };
 
-  const sendAudioToServer = async (audioBlob: Blob) => {
+  const sendPCM16Audio = (pcm16Data: Int16Array) => {
     try {
-      console.log('Sending audio to server, size:', audioBlob.size);
+      // Only log occasionally to avoid spam
+      if (Math.random() < 0.05) {
+        console.log('🎤 Frontend: sendPCM16Audio called, PCM16 samples:', pcm16Data.length);
+      }
       
-      // Convert audio to base64
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      // Convert PCM16 to base64
+      const uint8Array = new Uint8Array(pcm16Data.buffer);
+      const base64Audio = btoa(String.fromCharCode(...uint8Array));
       
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         const message = {
@@ -343,16 +481,51 @@ const VoiceTest: React.FC = () => {
           }
         };
         
-        console.log('Sending audio message:', message.event);
         wsRef.current.send(JSON.stringify(message));
-        setStatus('Sending audio...');
+        
+        // Only log success occasionally
+        if (Math.random() < 0.05) {
+          console.log('✅ Frontend: PCM16 audio sent successfully');
+        }
       } else {
-        console.error('WebSocket not connected');
+        console.error('❌ Frontend: WebSocket not connected! State:', wsRef.current?.readyState);
         setError('Not connected to server. Please try again.');
       }
     } catch (err) {
-      console.error('Error sending audio:', err);
+      console.error('❌ Frontend: Error sending PCM16 audio:', err);
       setError('Failed to send audio. Please try again.');
+    }
+  };
+
+
+  const sendTextMessage = () => {
+    if (!textInput.trim()) return;
+    
+    console.log('📤 Frontend: sendTextMessage called, isCurrentlySpeaking:', isCurrentlySpeaking);
+    
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const message = {
+        event: 'text_input',
+        text: textInput.trim()
+      };
+      
+      console.log('📤 Frontend: Sending text message:', message);
+      wsRef.current.send(JSON.stringify(message));
+      addToLog('user', textInput.trim());
+      setTextInput('');
+      setStatus('Sending text...');
+      
+      // Clear any previous AI response
+      console.log('🧹 Frontend: Clearing currentAiResponse and resetting isCurrentlySpeaking');
+      currentAiResponseRef.current = '';
+      currentUserMessageRef.current = '';
+      setCurrentAiResponse('');
+      setCurrentUserMessage('');
+      setIsCurrentlySpeaking(false);
+      speakingRef.current = false;
+    } else {
+      console.error('WebSocket not connected');
+      setError('Not connected to server. Please try again.');
     }
   };
 
@@ -375,10 +548,10 @@ const VoiceTest: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 relative">
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-10 p-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link
               to="/"
@@ -389,15 +562,15 @@ const VoiceTest: React.FC = () => {
               <ArrowLeftIcon className="w-6 h-6" />
             </Link>
             <div>
-              <h1 className={`text-3xl font-bold ${
+              <h1 className={`text-2xl font-bold ${
                 theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>
-                Voice Agent Test
+                Voice Agent Demo
               </h1>
               <p className={`text-sm ${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Test VocalHost's AI voice assistant capabilities
+                Phone-call style conversation
               </p>
             </div>
           </div>
@@ -413,122 +586,42 @@ const VoiceTest: React.FC = () => {
             </span>
           </div>
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Voice Controls */}
-          <div className={`rounded-2xl shadow-xl p-8 ${
-            theme === 'dark' 
-              ? 'bg-gray-800 border border-gray-700' 
-              : 'bg-white border border-gray-200'
-          }`}>
-            <h2 className={`text-xl font-semibold mb-6 ${
-              theme === 'dark' ? 'text-white' : 'text-gray-900'
-            }`}>
-              Voice Controls
-            </h2>
-
-            {/* Status */}
-            <div className="text-center mb-6">
-              <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-                isConnected 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  isConnected ? 'bg-green-500' : 'bg-gray-400'
+      {/* Main Conversation Area */}
+      <div className="flex flex-col h-screen pt-20 pb-32">
+        <div className="flex-1 max-w-4xl mx-auto w-full px-4">
+          {/* Status Indicators */}
+          <div className="flex justify-center mb-6">
+            <div className="flex items-center space-x-8">
+              {/* User Status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  isListening ? 'bg-green-500 shadow-lg shadow-green-500/50 animate-pulse' : 'bg-gray-400'
                 }`} />
-                {status}
+                <span className={`text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  You
+                </span>
               </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm mb-6"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            {/* Main Control Button */}
-            <div className="flex flex-col items-center space-y-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={isListening ? stopListening : startListening}
-                className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
-                  isListening
-                    ? 'bg-red-500 hover:bg-red-600'
-                    : 'bg-blue-500 hover:bg-blue-600'
-                }`}
-              >
-                {isListening ? (
-                  <StopIcon className="w-10 h-10" />
-                ) : (
-                  <MicrophoneIcon className="w-10 h-10" />
-                )}
-              </motion.button>
-
-              {/* Speaking Indicator */}
-              <AnimatePresence>
-                {isSpeaking && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center space-x-2 text-blue-600 dark:text-blue-400"
-                  >
-                    <SpeakerWaveIcon className="w-6 h-6 animate-pulse" />
-                    <span className="text-lg font-medium">AI is speaking...</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Instructions */}
-              <div className={`text-center text-sm ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>
-                {!isConnected ? (
-                  <p>Click the microphone to get started</p>
-                ) : isListening ? (
-                  <p>Speak now, then click stop when finished</p>
-                ) : (
-                  <p>Click the microphone to start talking to the AI</p>
-                )}
+              
+              {/* AI Status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  isSpeaking ? 'bg-blue-500 shadow-lg shadow-blue-500/50 animate-pulse' : 'bg-gray-400'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  AI Assistant
+                </span>
               </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-3 mt-8">
-              {isConnected && (
-                <button
-                  onClick={disconnect}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-gray-700 text-white hover:bg-gray-600'
-                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                  }`}
-                >
-                  Disconnect
-                </button>
-              )}
-              <button
-                onClick={clearLog}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  theme === 'dark'
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
-              >
-                Clear Log
-              </button>
             </div>
           </div>
 
           {/* Conversation Log */}
-          <div className={`rounded-2xl shadow-xl p-8 ${
+          <div className={`rounded-2xl shadow-xl p-6 h-full ${
             theme === 'dark' 
               ? 'bg-gray-800 border border-gray-700' 
               : 'bg-white border border-gray-200'
@@ -537,23 +630,56 @@ const VoiceTest: React.FC = () => {
               <h2 className={`text-xl font-semibold ${
                 theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>
-                Conversation Log
+                Conversation
               </h2>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <InformationCircleIcon className="w-4 h-4" />
-                <span>Real-time conversation</span>
-              </div>
+              <button
+                onClick={clearLog}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+              >
+                Clear
+              </button>
             </div>
+
+            {/* Current User Message Preview */}
+            {currentUserMessage && (
+              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <div className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">
+                  You are speaking...
+                </div>
+                <div className="text-sm text-green-800 dark:text-green-200">
+                  {currentUserMessage}
+                  <span className="animate-pulse">|</span>
+                </div>
+              </div>
+            )}
+
+            {/* Current AI Response Preview */}
+            {currentAiResponse && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">
+                  AI is responding...
+                </div>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  {currentAiResponse}
+                  <span className="animate-pulse">|</span>
+                </div>
+              </div>
+            )}
 
             <div className={`h-96 overflow-y-auto space-y-4 ${
               theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
             } rounded-lg p-4`}>
               {conversationLog.length === 0 ? (
-                <div className={`text-center py-8 ${
+                <div className={`text-center py-12 ${
                   theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
                 }`}>
-                  <MicrophoneIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start a conversation to see the log here</p>
+                  <div className="text-6xl mb-4">📞</div>
+                  <p className="text-lg font-medium mb-2">Ready to start your call</p>
+                  <p className="text-sm">Use the controls below to begin</p>
                 </div>
               ) : (
                 conversationLog.map((entry, index) => (
@@ -565,16 +691,13 @@ const VoiceTest: React.FC = () => {
                       entry.type === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
                       entry.type === 'user'
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-blue-500 text-white rounded-br-md'
                         : theme === 'dark'
-                        ? 'bg-gray-700 text-white'
-                        : 'bg-gray-200 text-gray-800'
+                        ? 'bg-gray-700 text-white rounded-bl-md'
+                        : 'bg-gray-200 text-gray-800 rounded-bl-md'
                     }`}>
-                      <div className="text-sm font-medium mb-1">
-                        {entry.type === 'user' ? 'You' : 'AI Assistant'}
-                      </div>
                       <div className="text-sm">{entry.message}</div>
                       <div className={`text-xs mt-1 ${
                         entry.type === 'user' ? 'text-blue-100' : 'text-gray-500'
@@ -588,76 +711,135 @@ const VoiceTest: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Features Info */}
-        <div className={`mt-8 rounded-2xl shadow-xl p-8 ${
+      {/* Floating Control Dock */}
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20">
+        <div className={`rounded-2xl shadow-2xl p-6 backdrop-blur-sm ${
           theme === 'dark' 
-            ? 'bg-gray-800 border border-gray-700' 
-            : 'bg-white border border-gray-200'
+            ? 'bg-gray-800/90 border border-gray-700' 
+            : 'bg-white/90 border border-gray-200'
         }`}>
-          <h3 className={`text-lg font-semibold mb-4 ${
-            theme === 'dark' ? 'text-white' : 'text-gray-900'
-          }`}>
-            What you can test:
-          </h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className={`p-4 rounded-lg ${
-              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
+          {/* Error Message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm mb-4"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          {/* Status Strip */}
+          <div className="flex items-center justify-center mb-4">
+            <div className={`text-sm font-medium ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              <h4 className={`font-medium mb-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
-                Business Information
-              </h4>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Ask about VocalHost's services, pricing, features, and capabilities
-              </p>
-            </div>
-            <div className={`p-4 rounded-lg ${
-              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-            }`}>
-              <h4 className={`font-medium mb-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
-                Natural Conversation
-              </h4>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Experience human-like conversations with our AI voice assistant
-              </p>
-            </div>
-            <div className={`p-4 rounded-lg ${
-              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-            }`}>
-              <h4 className={`font-medium mb-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
-                Voice Quality
-              </h4>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Test the clarity, responsiveness, and naturalness of the voice
-              </p>
-            </div>
-            <div className={`p-4 rounded-lg ${
-              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-            }`}>
-              <h4 className={`font-medium mb-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
-                Real-time Processing
-              </h4>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Experience low-latency speech-to-speech interactions
-              </p>
+              {status}
             </div>
           </div>
+
+          {/* Control Buttons */}
+          {inputMode === 'voice' ? (
+            <div className="flex items-center justify-center space-x-4">
+              {/* Text Mode Toggle */}
+              <button
+                onClick={() => setInputMode('text')}
+                className={`p-3 rounded-full transition-all duration-200 ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+                title="Switch to text mode"
+              >
+                <span className="text-xl">💬</span>
+              </button>
+
+              {/* Main Call Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={isListening ? stopListening : startListening}
+                disabled={!isConnected}
+                className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200 ${
+                  !isConnected
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : isListening
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-green-500 hover:bg-green-600'
+                }`}
+                title={isListening ? 'End call' : 'Start call'}
+              >
+                <span className="text-2xl">
+                  {isListening ? '📞' : '📞'}
+                </span>
+              </motion.button>
+
+              {/* Connect/Disconnect */}
+              <button
+                onClick={isConnected ? disconnect : connectWebSocket}
+                className={`p-3 rounded-full transition-all duration-200 ${
+                  isConnected
+                    ? theme === 'dark'
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                    : theme === 'dark'
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+                title={isConnected ? 'Disconnect' : 'Connect'}
+              >
+                <span className="text-xl">
+                  {isConnected ? '🔌' : '🔌'}
+                </span>
+              </button>
+            </div>
+          ) : (
+            /* Text Mode UI */
+            <div className="flex items-center space-x-3">
+              {/* Voice Mode Toggle */}
+              <button
+                onClick={() => setInputMode('voice')}
+                className={`p-3 rounded-full transition-all duration-200 ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+                title="Switch to voice mode"
+              >
+                <span className="text-xl">📞</span>
+              </button>
+
+              {/* Text Input */}
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendTextMessage()}
+                placeholder="Type your message..."
+                className={`flex-1 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+              />
+
+              {/* Send Button */}
+              <button
+                onClick={sendTextMessage}
+                disabled={!textInput.trim() || !isConnected}
+                className={`p-3 rounded-full transition-all duration-200 ${
+                  textInput.trim() && isConnected
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title="Send message"
+              >
+                <span className="text-xl">📤</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
