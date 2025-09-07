@@ -54,13 +54,13 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
   const connectWebSocket = async () => {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const backendHost = window.location.hostname === 'localhost' ? 'localhost:5100' : window.location.host;
+      const backendHost = window.location.hostname === 'localhost' ? 'localhost:5000' : window.location.host;
       const wsUrl = `${protocol}//${backendHost}/ws/voice-test`;
       
       // Check if backend is running first
-      if (window.location.hostname === 'localhost' && backendHost === 'localhost:5100') {
+      if (window.location.hostname === 'localhost' && backendHost === 'localhost:5000') {
         try {
-          const response = await fetch('http://localhost:5100');
+          const response = await fetch('http://localhost:5000');
           console.log('✅ Backend is running, status:', response.status);
         } catch (error) {
           console.error('❌ Backend is not running:', error);
@@ -105,7 +105,7 @@ const FloatingCallDock: React.FC<FloatingCallDockProps> = ({ className = '' }) =
 
       ws.onerror = (error) => {
         console.error('❌ WebSocket error:', error);
-        setError('Connection error. Please check if backend is running on port 5100.');
+        setError('Connection error. Please check if backend is running on port 5000.');
         setIsConnected(false);
       };
 
