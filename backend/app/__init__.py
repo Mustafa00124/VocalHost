@@ -42,6 +42,10 @@ def create_app():
     app.register_blueprint(stripe_bp, url_prefix="/stripe")
     app.register_blueprint(rag_bp) 
 
+    @app.route('/')
+    def health_check():
+        return {'status': 'ok', 'message': 'VocalHost Backend is running'}
+
     with app.app_context():
         db.create_all()
 
