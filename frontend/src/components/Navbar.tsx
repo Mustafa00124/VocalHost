@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarIcon, UserCircleIcon, SunIcon, MoonIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, UserCircleIcon, SunIcon, MoonIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { FaGoogle } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -135,19 +135,19 @@ const Navbar = () => {
                 />
                 <NavButton 
                   onClick={() => {
-                    scrollToSection('usage-section');
-                    closeMenu();
-                  }} 
-                  label="Usage" 
-                  icon={<LightBulbIcon className="w-3.5 h-3.5" />}
-                />
-                <NavButton 
-                  onClick={() => {
                     scrollToSection('demo-section');
                     closeMenu();
                   }} 
                   label="Demo" 
                   icon={<CalendarIcon className="w-3.5 h-3.5" />}
+                />
+                <NavButton 
+                  onClick={() => {
+                    scrollToSection('usage-section');
+                    closeMenu();
+                  }} 
+                  label="Usage" 
+                  icon={<LightBulbIcon className="w-3.5 h-3.5" />}
                 />
                 <NavLink 
                   to="/plans" 
@@ -162,10 +162,17 @@ const Navbar = () => {
             {!loading && user && (
               <>
                 <NavLink 
+                  to="/" 
+                  label="Home" 
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  icon={<HomeIcon className="w-3.5 h-3.5" />}
+                  onClick={closeMenu}
+                />
+                <NavLink 
                   to="/dashboard" 
                   label="Dashboard" 
                   className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<HomeIcon className="w-3.5 h-3.5" />}
+                  icon={<BuildingOfficeIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
                 <NavLink 
@@ -173,6 +180,13 @@ const Navbar = () => {
                   label="Create Assistant" 
                   className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
                   icon={<PlusCircleIcon className="w-3.5 h-3.5" />}
+                  onClick={closeMenu}
+                />
+                <NavLink 
+                  to="/manage-assistants" 
+                  label="Manage Assistants" 
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  icon={<PencilIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
                 <NavLink 
@@ -299,10 +313,22 @@ const Navbar = () => {
                 </div>
               ) : !isLoginPage && (
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+                  }}
+                  whileTap={{ 
+                    scale: 0.95,
+                    boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
+                  }}
                   onClick={handleGoogleLogin}
-                  className="ml-2 flex items-center gap-2 px-4 py-2 bg-white text-gray-800 font-medium hover:bg-gray-100 transition-colors border border-gray-300 rounded-lg shadow-lg hover:shadow-xl"
+                  className="ml-2 flex items-center gap-2 px-4 py-2 font-medium transition-all duration-300 rounded-lg"
+                  style={{
+                    background: '#e6e7ee',
+                    boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+                    border: '1px solid rgba(147, 51, 234, 0.3)',
+                    color: '#44476A'
+                  }}
                 >
                   <FaGoogle className="text-sm" />
                   <span className="text-sm">Sign in with Google</span>
@@ -339,19 +365,19 @@ const Navbar = () => {
                 />
                 <MobileNavButton 
                   onClick={() => {
-                    scrollToSection('usage-section');
-                    closeMenu();
-                  }} 
-                  label="Usage" 
-                  icon={<LightBulbIcon className="w-3.5 h-3.5" />}
-                />
-                <MobileNavButton 
-                  onClick={() => {
                     scrollToSection('demo-section');
                     closeMenu();
                   }} 
                   label="Demo" 
                   icon={<CalendarIcon className="w-3.5 h-3.5" />}
+                />
+                <MobileNavButton 
+                  onClick={() => {
+                    scrollToSection('usage-section');
+                    closeMenu();
+                  }} 
+                  label="Usage" 
+                  icon={<LightBulbIcon className="w-3.5 h-3.5" />}
                 />
                 <MobileNavLink 
                   to="/plans" 
@@ -366,10 +392,17 @@ const Navbar = () => {
             {!loading && user && (
               <>
                 <MobileNavLink 
+                  to="/" 
+                  label="Home" 
+                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  icon={<HomeIcon className="w-4 h-4" />}
+                  onClick={closeMenu}
+                />
+                <MobileNavLink 
                   to="/dashboard" 
                   label="Dashboard" 
                   className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<HomeIcon className="w-4 h-4" />}
+                  icon={<BuildingOfficeIcon className="w-4 h-4" />}
                   onClick={closeMenu}
                 />
                 <MobileNavLink 
@@ -377,6 +410,13 @@ const Navbar = () => {
                   label="Create Assistant" 
                   className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
                   icon={<PlusCircleIcon className="w-4 h-4" />}
+                  onClick={closeMenu}
+                />
+                <MobileNavLink 
+                  to="/manage-assistants" 
+                  label="Manage Assistants" 
+                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  icon={<PencilIcon className="w-4 h-4" />}
                   onClick={closeMenu}
                 />
                 <MobileNavLink 
@@ -419,16 +459,30 @@ const Navbar = () => {
             )}
             
             {!loading && !user && !isLoginPage && (
-              <button
+              <motion.button
                 onClick={() => {
                   handleGoogleLogin();
                   closeMenu();
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-white text-gray-800 font-medium hover:bg-gray-100 transition-colors border border-gray-300 rounded-lg mt-2 shadow-lg hover:shadow-xl"
+                whileHover={{ 
+                  scale: 1.02,
+                  boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+                }}
+                whileTap={{ 
+                  scale: 0.98,
+                  boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 rounded-lg mt-2"
+                style={{
+                  background: '#e6e7ee',
+                  boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+                  border: '1px solid rgba(147, 51, 234, 0.3)',
+                  color: '#44476A'
+                }}
               >
                 <FaGoogle className="text-sm" />
                 <span>Sign in with Google</span>
-              </button>
+              </motion.button>
             )}
           </div>
         </motion.div>
@@ -438,20 +492,27 @@ const Navbar = () => {
 };
 
 const NavButton = ({ onClick, label, className = "", icon }: { onClick: () => void; label: string; className?: string; icon?: React.ReactNode }) => {
-  const { theme } = useTheme();
   
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ 
+        scale: 1.02,
+        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+      }}
+      whileTap={{ 
+        scale: 0.98,
+        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+      }}
     >
       <button
         onClick={onClick}
-        className={`px-3 py-1.5 transition-colors duration-200 rounded-lg ${
-          theme === 'dark' 
-            ? 'text-gray-200 hover:text-white hover:bg-gray-700/50'
-            : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-        } ${className} flex items-center space-x-1`}
+        className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
+        style={{
+          background: '#e6e7ee',
+          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: '#44476A'
+        }}
       >
         {icon && <span>{icon}</span>}
         <span>{label}</span>
@@ -461,21 +522,28 @@ const NavButton = ({ onClick, label, className = "", icon }: { onClick: () => vo
 };
 
 const NavLink = ({ to, label, className = "", icon, onClick }: { to: string; label: string; className?: string; icon?: React.ReactNode; onClick?: () => void }) => {
-  const { theme } = useTheme();
   
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ 
+        scale: 1.02,
+        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+      }}
+      whileTap={{ 
+        scale: 0.98,
+        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+      }}
     >
       <Link
         to={to}
         onClick={onClick}
-        className={`px-3 py-1.5 transition-colors duration-200 rounded-lg ${
-          theme === 'dark' 
-            ? 'text-gray-200 hover:text-white hover:bg-gray-700/50'
-            : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-        } ${className} flex items-center space-x-1`}
+        className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
+        style={{
+          background: '#e6e7ee',
+          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: '#44476A'
+        }}
       >
         {icon && icon}
         <span>{label}</span>
@@ -486,39 +554,60 @@ const NavLink = ({ to, label, className = "", icon, onClick }: { to: string; lab
 
 // Mobile specific components
 const MobileNavButton = ({ onClick, label, className = "", icon }: { onClick: () => void; label: string; className?: string; icon?: React.ReactNode }) => {
-  const { theme } = useTheme();
   
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`w-full px-4 py-3 transition-colors duration-200 rounded-lg ${
-        theme === 'dark' 
-          ? 'text-gray-200 hover:text-white hover:bg-gray-700/50'
-          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-      } ${className} flex items-center space-x-2`}
+      whileHover={{ 
+        scale: 1.02,
+        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+      }}
+      whileTap={{ 
+        scale: 0.98,
+        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+      }}
+      className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
+      style={{
+        background: '#e6e7ee',
+        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        color: '#44476A'
+      }}
     >
       {icon && <span>{icon}</span>}
       <span>{label}</span>
-    </button>
+    </motion.button>
   );
 };
 
 const MobileNavLink = ({ to, label, className = "", icon, onClick }: { to: string; label: string; className?: string; icon?: React.ReactNode; onClick?: () => void }) => {
-  const { theme } = useTheme();
   
   return (
-    <Link
-      to={to}
-      onClick={onClick}
-      className={`block w-full px-4 py-3 transition-colors duration-200 rounded-lg ${
-        theme === 'dark' 
-          ? 'text-gray-200 hover:text-white hover:bg-gray-700/50'
-          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-      } ${className} flex items-center space-x-2`}
+    <motion.div
+      whileHover={{ 
+        scale: 1.02,
+        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+      }}
+      whileTap={{ 
+        scale: 0.98,
+        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+      }}
     >
-      {icon && icon}
-      <span>{label}</span>
-    </Link>
+      <Link
+        to={to}
+        onClick={onClick}
+        className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
+        style={{
+          background: '#e6e7ee',
+          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: '#44476A'
+        }}
+      >
+        {icon && icon}
+        <span>{label}</span>
+      </Link>
+    </motion.div>
   );
 };
 

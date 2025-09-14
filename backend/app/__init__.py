@@ -2,8 +2,7 @@ from flask import Flask
 from app.extensions import db  # <== from extensions now
 import os
 from flask_sock import Sock
-from flask_cors import CORS 
-sock = Sock()
+from flask_cors import CORS
 
 def create_app():
     here = os.path.abspath(os.path.dirname(__file__))
@@ -13,6 +12,9 @@ def create_app():
         static_folder=os.path.join(here, "..", "static"),
         static_url_path="/static"
     )
+    
+    # Initialize Flask-Sock
+    sock = Sock()
     sock.init_app(app)
     app.config.from_pyfile("config.py")
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///app.db")
@@ -33,14 +35,22 @@ def create_app():
     from .routes.assistant_routes import assistant_bp
     from .routes.auth_routes import auth_bp
     from .routes.rag_routes import rag_bp
-    from .routes.voice_routes import voice_bp
     from .routes.stripe_routes import stripe_bp
+    from .routes.demo_voice_routes import demo_voice_bp
+    from .routes.demo_text_routes import demo_text_bp
 
+    # Pass the sock instance to the demo routes
+    from .routes.demo_voice_routes import setup_sock
+    setup_sock(sock)
+    
     app.register_blueprint(assistant_bp, url_prefix="/api")
-    app.register_blueprint(voice_bp, url_prefix="/voice")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(stripe_bp, url_prefix="/stripe")
-    app.register_blueprint(rag_bp) 
+    app.register_blueprint(rag_bp)
+    
+    # Register demo routes
+    app.register_blueprint(demo_voice_bp, url_prefix="/demo")
+    app.register_blueprint(demo_text_bp, url_prefix="/demo/text") 
 
     @app.route('/')
     def health_check():

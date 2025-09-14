@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import { PlusIcon, MicrophoneIcon,  ClockIcon, CalendarIcon, PhoneIcon, PencilIcon, CheckIcon, XMarkIcon, StarIcon, SparklesIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LeftFloatingElements, RightFloatingElements } from '../components/FloatingElements';
 import { useTheme } from '../contexts/ThemeContext';
@@ -49,6 +50,7 @@ interface SubscriptionStatus {
 
 const Dashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { theme } = useTheme();
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -389,6 +391,7 @@ const Dashboard = () => {
                 key={assistant.id} 
                 assistant={assistant} 
                 onUpdate={() => setHasAttemptedFetch(false)}
+                onEdit={() => navigate(`/manage-assistants/edit/${assistant.id}`)}
               />
             ))}
           </div>
@@ -410,10 +413,12 @@ const Dashboard = () => {
 
 const AssistantCard = ({ 
   assistant, 
-  onUpdate 
+  onUpdate,
+  onEdit
 }: { 
   assistant: Assistant;
   onUpdate: () => void;
+  onEdit: () => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<AssistantUpdatePayload>({});
@@ -539,7 +544,8 @@ const AssistantCard = ({
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 sm:p-6 flex flex-col h-[450px] overflow-hidden"
+      className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 sm:p-6 flex flex-col h-[450px] overflow-hidden cursor-pointer"
+      onClick={onEdit}
     >
       <div className="flex justify-between items-start mb-4">
         <div>
@@ -561,12 +567,26 @@ const AssistantCard = ({
         </div>
         <div className="flex items-center space-x-2">
           {!isEditing ? (
-            <button
-              onClick={handleEdit}
-              className="p-1.5 hover:bg-gray-700 rounded-full transition-colors"
-            >
-              <PencilIcon className="w-5 h-5 text-gray-400" />
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white text-sm rounded-lg transition-colors"
+              >
+                Manage
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit();
+                }}
+                className="p-1.5 hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <PencilIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </>
           ) : (
             <div className="flex items-center space-x-2">
               <button

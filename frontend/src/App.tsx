@@ -9,16 +9,22 @@ import Schedule from './pages/Schedule';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import Dashboard from './pages/Dashboard';
 import VoiceTest from './pages/VoiceTest';
+import ManageAssistants from './pages/ManageAssistants';
+import EditAssistant from './pages/EditAssistant';
 
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useTheme } from './contexts/ThemeContext';
 import { useEffect } from 'react';
 
 function App() {
+  console.log("🚀 App component rendering...");
   const { theme } = useTheme();
+  console.log("🎨 Theme:", theme);
   
   // Ensure the viewport meta tag is set correctly for mobile responsiveness
   useEffect(() => {
+    console.log("📱 Setting up viewport meta tag...");
     // Check if viewport meta tag exists
     let viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement;
     
@@ -46,7 +52,11 @@ function App() {
             transition={{ duration: 0.5 }}
           >
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={
+                <ErrorBoundary fallback={<div style={{padding: '20px', color: 'red'}}>Home page failed to load</div>}>
+                  <Home />
+                </ErrorBoundary>
+              } />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/voice-test" element={<VoiceTest />} />
@@ -59,6 +69,16 @@ function App() {
               <Route path="/create" element={
                 <ProtectedRoute>
                   <CreateAssistant />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-assistants" element={
+                <ProtectedRoute>
+                  <ManageAssistants />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-assistants/edit/:id" element={
+                <ProtectedRoute>
+                  <EditAssistant />
                 </ProtectedRoute>
               } />
               <Route path="/schedule" element={

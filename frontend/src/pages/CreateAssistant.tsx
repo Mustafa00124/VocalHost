@@ -873,11 +873,6 @@ const CreateAssistantPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [createdAssistant, setCreatedAssistant] = useState<{
-    id: number;
-    twilioNumber: string;
-    message: string;
-  } | null>(null);
 
   // Get state and functions from context
   const { 
@@ -949,13 +944,8 @@ const CreateAssistantPage = () => {
         throw new Error(errorData.error || `Server responded with status: ${response.status}`);
       }
 
-      const data = await response.json();
+      await response.json();
       setIsLoading(false);
-      setCreatedAssistant({
-        id: data.assistant_id,
-        twilioNumber: data.twilio_number || '',
-        message: data.message
-      });
       setIsSuccessModalOpen(true);
     } catch (error: any) {
       setIsLoading(false);
