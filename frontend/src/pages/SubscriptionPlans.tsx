@@ -248,7 +248,7 @@ const SubscriptionPlans = () => {
         className="space-y-12"
       >
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
             Choose Your Plan
           </h1>
           <p className={theme === 'dark' ? 'text-gray-300 max-w-2xl mx-auto' : 'text-gray-600 max-w-2xl mx-auto'}>
@@ -282,7 +282,13 @@ const SubscriptionPlans = () => {
               whileTap={{ scale: 0.95 }}
               onClick={handleManageSubscription}
               disabled={loading}
-              className="mt-4 px-6 py-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="mt-4 px-6 py-2 rounded-lg font-semibold transition-all duration-300 disabled:opacity-50"
+              style={{
+                color: '#44476A',
+                background: '#e6e7ee',
+                boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
+                border: '1px solid rgba(147, 51, 234, 0.3)'
+              }}
             >
               {loading ? 'Loading...' : 'Manage My Subscription'}
             </motion.button>
@@ -298,11 +304,19 @@ const SubscriptionPlans = () => {
             return (
               <motion.div
                 key={plan.id}
-                whileHover={{ scale: isDisabled ? 1 : 1.03 }}
+                whileHover={{ 
+                  scale: isDisabled ? 1 : 1.03,
+                  boxShadow: isDisabled ? '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff' : '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+                }}
                 transition={{ type: "spring", stiffness: 300 }}
-                className={`relative rounded-2xl ${bgClass} border p-6 shadow-lg flex flex-col h-full ${
+                className={`relative rounded-2xl p-6 flex flex-col h-full transition-all duration-300 ${
                   isDisabled ? 'opacity-75' : ''
                 }`}
+                style={{
+                  background: '#e6e7ee',
+                  boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+                  border: '1px solid rgba(147, 51, 234, 0.3)'
+                }}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-0 right-0 flex justify-center">
@@ -321,7 +335,15 @@ const SubscriptionPlans = () => {
                 )}
                 
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className={`p-2 rounded-lg bg-gradient-to-r ${plan.color} text-white`}>
+                  <div 
+                    className="p-3 rounded-xl inline-block"
+                    style={{
+                      background: '#e6e7ee',
+                      boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#2D4CC8'
+                    }}
+                  >
                     {plan.icon}
                   </div>
                   <h3 className={`text-xl font-bold ${textClass}`}>{plan.name}</h3>
@@ -355,11 +377,17 @@ const SubscriptionPlans = () => {
                   disabled={loading || isDisabled}
                   className={`mt-auto w-full px-4 py-3 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 ${
                     isDisabled
-                      ? `border ${borderClass} ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} cursor-not-allowed`
-                      : plan.id === 'custom' 
-                        ? `border ${borderClass} ${theme === 'dark' ? 'text-white' : 'text-gray-800'} ${hoverBgClass}` 
-                        : 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white hover:opacity-90'
+                      ? 'cursor-not-allowed'
+                      : ''
                   }`}
+                  style={{
+                    color: isDisabled ? '#66799e' : '#44476A',
+                    background: '#e6e7ee',
+                    boxShadow: isDisabled 
+                      ? 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff'
+                      : 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
+                    border: '1px solid rgba(147, 51, 234, 0.3)'
+                  }}
                 >
                   {loading && selectedPlan === plan.id 
                     ? 'Loading...' 
@@ -370,83 +398,63 @@ const SubscriptionPlans = () => {
           })}
         </div>
 
-        {/* Features Comparison */}
-        <div className="mt-16">
-          <h2 className={`text-2xl font-bold mb-8 text-center ${textClass}`}>Feature Comparison</h2>
-          
-          <div className={`rounded-2xl ${bgClass} border p-8 shadow-lg overflow-x-auto`}>
-            <table className="w-full">
-              <thead>
-                <tr className={`border-b ${borderClass}`}>
-                  <th className={`text-left py-4 px-4 ${textClass}`}>Feature</th>
-                  <th className={`text-center py-4 px-4 ${textClass}`}>Basic</th>
-                  <th className={`text-center py-4 px-4 ${textClass}`}>Pro</th>
-                  <th className={`text-center py-4 px-4 ${textClass}`}>Custom</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className={`border-b ${borderClass}`}>
-                  <td className={`py-4 px-4 ${textClass}`}>Voice Assistants</td>
-                  <td className="text-center py-4 px-4">1</td>
-                  <td className="text-center py-4 px-4">3</td>
-                  <td className="text-center py-4 px-4">Unlimited</td>
-                </tr>
-                <tr className={`border-b ${borderClass}`}>
-                  <td className={`py-4 px-4 ${textClass}`}>WhatsApp Integration</td>
-                  <td className="text-center py-4 px-4">
-                    <LockClosedIcon className={`w-5 h-5 mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
-                  </td>
-                  <td className="text-center py-4 px-4">
-                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
-                  </td>
-                  <td className="text-center py-4 px-4">
-                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
-                  </td>
-                </tr>
-                <tr className={`border-b ${borderClass}`}>
-                  <td className={`py-4 px-4 ${textClass}`}>CRM Integration</td>
-                  <td className="text-center py-4 px-4">
-                    <LockClosedIcon className={`w-5 h-5 mx-auto ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
-                  </td>
-                  <td className="text-center py-4 px-4">
-                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
-                  </td>
-                  <td className="text-center py-4 px-4">
-                    <CheckIcon className="w-5 h-5 text-primary-500 mx-auto" />
-                  </td>
-                </tr>
-                <tr>
-                  <td className={`py-4 px-4 ${textClass}`}>Analytics</td>
-                  <td className="text-center py-4 px-4">Today only</td>
-                  <td className="text-center py-4 px-4">30 days</td>
-                  <td className="text-center py-4 px-4">Unlimited</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
 
         {/* FAQ Section */}
-        <div className={`mt-16 rounded-2xl ${bgClass} border p-8 shadow-lg`}>
+        <div 
+          className="mt-16 rounded-2xl p-8 transition-all duration-300"
+          style={{
+            background: '#e6e7ee',
+            boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+            border: '1px solid rgba(147, 51, 234, 0.3)'
+          }}
+        >
           <h2 className={`text-2xl font-bold mb-6 ${textClass}`}>Frequently Asked Questions</h2>
           
           <div className="grid md:grid-cols-2 gap-6">
-            <div className={`p-4 border ${borderClass} rounded-lg`}>
+            <div 
+              className="p-4 rounded-lg transition-all duration-300"
+              style={{
+                background: '#e6e7ee',
+                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+                border: '1px solid rgba(147, 51, 234, 0.2)'
+              }}
+            >
               <h3 className={`font-semibold mb-2 ${textClass}`}>Can I switch plans later?</h3>
               <p className={textMutedClass}>Yes, you can upgrade, downgrade, or cancel your subscription at any time from your account dashboard.</p>
             </div>
             
-            <div className={`p-4 border ${borderClass} rounded-lg`}>
+            <div 
+              className="p-4 rounded-lg transition-all duration-300"
+              style={{
+                background: '#e6e7ee',
+                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+                border: '1px solid rgba(147, 51, 234, 0.2)'
+              }}
+            >
               <h3 className={`font-semibold mb-2 ${textClass}`}>How do I add more assistants?</h3>
               <p className={textMutedClass}>You can upgrade to a higher tier plan or contact our sales team for a custom solution tailored to your needs.</p>
             </div>
             
-            <div className={`p-4 border ${borderClass} rounded-lg`}>
+            <div 
+              className="p-4 rounded-lg transition-all duration-300"
+              style={{
+                background: '#e6e7ee',
+                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+                border: '1px solid rgba(147, 51, 234, 0.2)'
+              }}
+            >
               <h3 className={`font-semibold mb-2 ${textClass}`}>What payment methods do you accept?</h3>
               <p className={textMutedClass}>We accept all major credit cards, PayPal, and bank transfers for annual plans.</p>
             </div>
             
-            <div className={`p-4 border ${borderClass} rounded-lg`}>
+            <div 
+              className="p-4 rounded-lg transition-all duration-300"
+              style={{
+                background: '#e6e7ee',
+                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
+                border: '1px solid rgba(147, 51, 234, 0.2)'
+              }}
+            >
               <h3 className={`font-semibold mb-2 ${textClass}`}>Is there a setup fee?</h3>
               <p className={textMutedClass}>No, there are no setup fees. You only pay the monthly subscription price for your selected plan.</p>
             </div>

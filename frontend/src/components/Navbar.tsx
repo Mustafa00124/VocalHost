@@ -40,7 +40,6 @@ const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
-  const isPlansPage = location.pathname === '/plans';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -123,7 +122,7 @@ const Navbar = () => {
               <NavLink to="/" label="Home" onClick={closeMenu} />
             )}
             
-            {!loading && !user && !isLoginPage && !isPlansPage && (
+            {!loading && !user && !isLoginPage && (
               <>
                 <NavButton 
                   onClick={() => {
@@ -353,7 +352,7 @@ const Navbar = () => {
               <MobileNavLink to="/" label="Home" onClick={closeMenu} />
             )}
             
-            {!loading && !user && !isLoginPage && !isPlansPage && (
+            {!loading && !user && !isLoginPage && (
               <>
                 <MobileNavButton 
                   onClick={() => {

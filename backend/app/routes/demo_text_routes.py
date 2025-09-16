@@ -6,6 +6,7 @@ import asyncio
 import os
 import json
 import logging
+import time
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -56,11 +57,18 @@ def chat_with_agent():
             session_id=session_id
         ))
         
+        # Check if this is a booking confirmation and extract booking data
+        booking_data = None
+        if "Reservation confirmed" in response or "Appointment booked" in response or "Dental appointment scheduled" in response:
+            # Extract booking information from the response
+            booking_data = extract_booking_data_from_response(response, agent_type)
+        
         return jsonify({
             "status": "success",
             "response": response,
             "agent_type": agent_type,
-            "session_id": session_id
+            "session_id": session_id,
+            "booking_data": booking_data  # Include booking data for frontend state update
         })
         
     except Exception as e:
@@ -69,6 +77,46 @@ def chat_with_agent():
             "status": "error",
             "message": f"Chat error: {str(e)}"
         }), 500
+
+def extract_booking_data_from_response(response: str, agent_type: str):
+    """Extract booking data from agent response for frontend state update"""
+    try:
+        import re
+        
+        # Check for different booking confirmation patterns
+        booking_patterns = [
+            r"Reservation confirmed for (.+?) on (.+?) at (.+?)",
+            r"Appointment booked for (.+?) - (.+?) on (.+?) at (.+?)",
+            r"Dental appointment scheduled for (.+?) - (.+?) on (.+?) at (.+?)"
+        ]
+        
+        for pattern in booking_patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) >= 3:
+                    customer_name = groups[0].strip()
+                    date = groups[1].strip()
+                    time = groups[2].strip()
+                    service = groups[3].strip() if len(groups) > 3 else "Appointment"
+                    
+                    return {
+                        "type": "booking",
+                        "action": "add_booking",
+                        "agent_type": agent_type,
+                        "data": {
+                            "time": time,
+                            "date": date,
+                            "customer_name": customer_name,
+                            "id": f"{date}_{time}_{customer_name}".replace(" ", "_"),
+                            "service": service
+                        }
+                    }
+        
+        return None
+    except Exception as e:
+        print(f"Error extracting booking data: {e}")
+        return None
 
 @demo_text_bp.route('/greeting', methods=['POST'])
 def get_greeting():

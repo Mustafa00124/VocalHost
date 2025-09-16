@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { websocketClient } from './websocket/websocketClient';
-import ChatInterface from './components/ChatInterface';
+import { useDemoState } from './state/demoStateProvider';
 
 interface PhonePanelProps {
   agentName: string;
@@ -28,7 +28,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   agentName,
   agentAvatar,
   agentType,
-  isConnected,
   isListening,
   isSpeaking,
   callDuration,
@@ -37,9 +36,9 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   onMuteToggle
 }) => {
   const { theme } = useTheme();
+  const { addBooking } = useDemoState();
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentAiMessage, setCurrentAiMessage] = useState('');
-  const [showMessages, setShowMessages] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -174,6 +173,106 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     console.log('🔇 Mute toggled:', newMutedState);
   };
 
+  // Parse booking confirmation from text response
+  const parseBookingConfirmation = (responseText: string, agentType: string) => {
+    // Look for booking confirmation patterns
+    const bookingPatterns = {
+      restaurant: /Reservation confirmed for (.+?) - Party of (\d+) on (.+?) at (.+?)\./i,
+      salon: /Appointment booked for (.+?) - (.+?) on (.+?) at (.+?)\./i,
+      dentist: /Dental appointment scheduled for (.+?) - (.+?) on (.+?) at (.+?)\./i,
+      ecommerce: /Order processed for (.+?):\s*Items: (.+?)\./i,
+      support: /Support ticket created for (.+?):\s*Issue: (.+?)\s*Description: (.+?)\./i
+    };
+
+    const pattern = bookingPatterns[agentType as keyof typeof bookingPatterns];
+    if (!pattern) return null;
+
+    const match = responseText.match(pattern);
+    if (!match) return null;
+
+    // Extract booking details based on agent type
+    if (agentType === 'restaurant') {
+      const [, customerName, partySize, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          id: `${date}_${time}_${customerName}`,
+          customer_name: customerName,
+          time: time,
+          date: date,
+          party_size: parseInt(partySize),
+          service: 'Restaurant Reservation'
+        }
+      };
+    } else if (agentType === 'salon') {
+      const [, customerName, service, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          id: `${date}_${time}_${customerName}`,
+          customer_name: customerName,
+          time: time,
+          date: date,
+          service: service
+        }
+      };
+    } else if (agentType === 'dentist') {
+      const [, customerName, procedure, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          id: `${date}_${time}_${customerName}`,
+          customer_name: customerName,
+          time: time,
+          date: date,
+          service: procedure
+        }
+      };
+    } else if (agentType === 'ecommerce') {
+      const [, customerName, items] = match;
+      return {
+        type: 'order',
+        data: {
+          id: `order_${Date.now()}_${customerName}`,
+          customer_name: customerName,
+          items: items,
+          status: 'confirmed'
+        }
+      };
+    } else if (agentType === 'support') {
+      const [, customerName, issueType, description] = match;
+      return {
+        type: 'ticket',
+        data: {
+          id: `ticket_${Date.now()}_${customerName}`,
+          customer_name: customerName,
+          issue_type: issueType,
+          description: description,
+          status: 'open'
+        }
+      };
+    }
+
+    return null;
+  };
+
+  // Update calendar based on booking confirmation
+  const handleBookingConfirmation = (bookingData: any, agentType: string) => {
+    if (bookingData.type === 'booking') {
+      const newBooking = {
+        time: bookingData.data.time,
+        date: bookingData.data.date,
+        customerName: bookingData.data.customer_name,
+        customerEmail: '',
+        service: bookingData.data.service || '',
+        status: 'confirmed' as const
+      };
+
+      addBooking(agentType, newBooking);
+      console.log('📅 Calendar updated with new booking:', newBooking);
+    }
+  };
+
   // Send message function
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -212,6 +311,19 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           timestamp: new Date()
         };
         setMessages(prev => [...prev, agentMessage]);
+
+        // Check if this is a booking confirmation and update calendar
+        if (data.booking_data) {
+          // Use booking data from HTTP response
+          handleBookingConfirmation(data.booking_data, agentType);
+          console.log('📅 Calendar updated from HTTP response:', data.booking_data);
+        } else {
+          // Fallback to parsing response text
+          const bookingConfirmation = parseBookingConfirmation(data.response, agentType);
+          if (bookingConfirmation) {
+            handleBookingConfirmation(bookingConfirmation, agentType);
+          }
+        }
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -312,7 +424,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
 
         {/* Messages Area - Always present spacer, conditional content */}
         <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-          {showMessages && (
+          {messages.length > 0 && (
             <React.Fragment>
               <AnimatePresence>
                 {messages.map((message) => (
@@ -464,9 +576,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
             className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ${
               isMuted
                 ? 'bg-red-500 hover:bg-red-600 text-white'
-                : theme === 'dark' 
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
             }`}
           >
             {isMuted ? (
@@ -491,7 +601,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
             className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${
               isCallActive
                 ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
+                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
             }`}
             animate={isCallActive ? { 
               boxShadow: [
@@ -526,8 +636,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
             onClick={() => setShowChat(!showChat)}
             className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 ${
               showChat
-                ? 'bg-blue-500 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
             }`}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

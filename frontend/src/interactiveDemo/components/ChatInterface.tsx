@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useDemoState } from '../state/demoStateProvider';
 
 interface Message {
   id: string;
@@ -13,6 +14,7 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ agentType, onBackToCall }) => {
+  const { addBooking } = useDemoState();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +51,77 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ agentType, onBackToCall }
     };
     setMessages([greetingMessage]);
   }, [agentName]);
+
+  // Parse booking confirmation from text response
+  const parseBookingConfirmation = (responseText: string, agentType: string) => {
+    // Look for booking confirmation patterns
+    const bookingPatterns = {
+      restaurant: /Reservation confirmed for (.+?) - Party of (\d+) on (.+?) at (.+?)\./i,
+      salon: /Appointment booked for (.+?) - (.+?) on (.+?) at (.+?)\./i,
+      dentist: /Dental appointment scheduled for (.+?) - (.+?) on (.+?) at (.+?)\./i,
+      ecommerce: /Order processed for (.+?):\s*Items: (.+?)\./i,
+      support: /Support ticket created for (.+?):\s*Issue: (.+?)\s*Description: (.+?)\./i
+    };
+
+    const pattern = bookingPatterns[agentType as keyof typeof bookingPatterns];
+    if (!pattern) return null;
+
+    const match = responseText.match(pattern);
+    if (!match) return null;
+
+    // Extract booking details based on agent type
+    if (agentType === 'restaurant') {
+      const [, customerName, partySize, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          time: time,
+          date: date,
+          customerName: customerName,
+          service: 'Restaurant Reservation'
+        }
+      };
+    } else if (agentType === 'salon') {
+      const [, customerName, service, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          time: time,
+          date: date,
+          customerName: customerName,
+          service: service
+        }
+      };
+    } else if (agentType === 'dentist') {
+      const [, customerName, procedure, date, time] = match;
+      return {
+        type: 'booking',
+        data: {
+          time: time,
+          date: date,
+          customerName: customerName,
+          service: procedure
+        }
+      };
+    }
+
+    return null;
+  };
+
+  // Update calendar based on booking confirmation
+  const handleBookingConfirmation = (bookingData: any, agentType: string) => {
+    if (bookingData.type === 'booking') {
+      addBooking(agentType, {
+        time: bookingData.data.time,
+        date: bookingData.data.date,
+        customerName: bookingData.data.customerName,
+        customerEmail: '',
+        service: bookingData.data.service,
+        status: 'confirmed' as const
+      });
+      console.log('📅 Calendar updated with new booking:', bookingData.data);
+    }
+  };
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -87,6 +160,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ agentType, onBackToCall }
           timestamp: new Date()
         };
         setMessages(prev => [...prev, agentMessage]);
+
+        // Check if this is a booking confirmation and update calendar
+        const bookingConfirmation = parseBookingConfirmation(data.response, agentType);
+        if (bookingConfirmation) {
+          handleBookingConfirmation(bookingConfirmation, agentType);
+        }
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),

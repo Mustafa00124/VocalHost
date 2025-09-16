@@ -10,7 +10,7 @@ interface CalendarProps {
 const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
   const { theme } = useTheme();
   const { state, addBooking, cancelBooking } = useDemoState();
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(new Date(2025, 0, 6)); // Start with first week of January 2025
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [newBooking, setNewBooking] = useState({
@@ -26,7 +26,7 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
     return `${hour}:00 ${hour < 12 ? 'AM' : hour === 12 ? 'PM' : 'PM'}`;
   });
 
-  // Generate week days
+  // Generate week days (limited to January 2025)
   const getWeekDays = () => {
     const start = new Date(currentWeek);
     start.setDate(start.getDate() - start.getDay() + 1); // Start from Monday
@@ -34,10 +34,16 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
     return Array.from({ length: 5 }, (_, i) => {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
+      
+      // Check if date is in January 2025
+      const isInJanuary2025 = date.getFullYear() === 2025 && date.getMonth() === 0;
+      
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
         date: date.getDate(),
-        fullDate: date.toISOString().split('T')[0]
+        fullDate: date.toISOString().split('T')[0],
+        isInJanuary2025,
+        isWeekend: date.getDay() === 0 || date.getDay() === 6
       };
     });
   };
@@ -103,11 +109,22 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
     setNewBooking({ customerName: '' });
   };
 
-  // Navigate weeks
+  // Navigate weeks (limited to January 2025)
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newWeek = new Date(currentWeek);
     newWeek.setDate(newWeek.getDate() + (direction === 'next' ? 7 : -7));
-    setCurrentWeek(newWeek);
+    
+    // Check if new week is still in January 2025
+    const weekStart = new Date(newWeek);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Start from Monday
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 4); // End on Friday
+    
+    const isInJanuary2025 = weekStart.getFullYear() === 2025 && weekStart.getMonth() === 0;
+    
+    if (isInJanuary2025) {
+      setCurrentWeek(newWeek);
+    }
   };
 
   const weekDays = getWeekDays();
@@ -130,7 +147,7 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
               ←
             </button>
             <span className={`px-3 py-1 rounded-lg ${theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700'}`}>
-              Week of {currentWeek.toLocaleDateString()}
+              Week of {currentWeek.toLocaleDateString()} (January 2025)
             </span>
             <button
               onClick={() => navigateWeek('next')}
@@ -160,7 +177,7 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
           {weekDays.map((day) => (
             <div key={day.fullDate} className="flex flex-col">
               {/* Day header */}
-              <div className={`p-2 text-center border-b ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'}`}>
+              <div className={`p-2 text-center border-b ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'} ${day.isWeekend ? 'opacity-60' : ''} ${!day.isInJanuary2025 ? 'opacity-30' : ''}`}>
                 <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
                   {day.day}
                 </div>
@@ -179,18 +196,22 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
                     <motion.div
                       key={`${day.fullDate}-${time}`}
                       className={`h-12 border-b cursor-pointer transition-all duration-200 ${
-                        isBooked
+                        !day.isInJanuary2025
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : isBooked
                           ? 'bg-purple-600 text-white hover:bg-purple-700'
                           : theme === 'dark'
                           ? 'bg-gray-800 hover:bg-gray-700 text-gray-400'
                           : 'bg-white hover:bg-gray-50 text-gray-500'
                       }`}
-                      onClick={() => handleSlotClick(time, day.fullDate)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      onClick={() => day.isInJanuary2025 && handleSlotClick(time, day.fullDate)}
+                      whileHover={day.isInJanuary2025 ? { scale: 1.02 } : {}}
+                      whileTap={day.isInJanuary2025 ? { scale: 0.98 } : {}}
                     >
                       <div className="p-2 h-full flex items-center justify-center">
-                        {isBooked ? (
+                        {!day.isInJanuary2025 ? (
+                          <span className="text-xs text-gray-400">Not Available</span>
+                        ) : isBooked ? (
                           <div className="text-center">
                             <div className="text-xs font-semibold truncate text-white">
                               {booking?.customerName}

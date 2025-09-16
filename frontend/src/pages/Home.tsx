@@ -533,7 +533,7 @@ const UsageCard = ({ icon, title, description }: { icon: React.ReactNode; title:
           background: '#e6e7ee',
           boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
           border: '1px solid rgba(255, 255, 255, 0.2)',
-          color: '#18634B'
+          color: '#2D4CC8'
         }}
       >
         {icon}

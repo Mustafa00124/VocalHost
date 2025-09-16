@@ -1,12 +1,14 @@
 """
-Text-based demo agent using OpenAI Agents SDK
+Text-based demo agent using OpenAI Agents SDK with multi-agent routing
 """
 import os
 import json
 import logging
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
-from agents import Agent, Runner, function_tool
+from agents import Agent, Runner, function_tool, SQLiteSession
+from .agent_creators import create_chat_agent, create_policy_agent, create_tool_agent
+from .websocket_handler import websocket_handler
 
 # Load environment variables from .env file with override
 load_dotenv(override=True)
@@ -21,17 +23,117 @@ def book_appointment(
     customer_name: str,
     service: str,
     date: str,
-    time: str,
-    phone: str,
-    notes: str = ""
+    time: str
 ) -> str:
-    """Book an appointment for a customer"""
-    return f"✅ Appointment booked for {customer_name} - {service} on {date} at {time}. Phone: {phone}. Notes: {notes}"
+    """Book an appointment for a customer - only requires name, service, date, and time"""
+    try:
+        # Broadcast calendar update to frontend
+        message = {
+            "type": "calendar_update",
+            "action": "add_booking",
+            "agent_type": "salon",
+            "data": {
+                "time": time,
+                "date": date,
+                "customer_name": customer_name,
+                "id": f"{date}_{time}_{customer_name}",
+                "service": service
+            }
+        }
+        websocket_handler.broadcast_message(message)
+        return f"✅ Appointment booked for {customer_name} - {service} on {date} at {time}. We'll call you to confirm the details closer to your appointment date."
+    except Exception as e:
+        return f"✅ Appointment booked for {customer_name} - {service} on {date} at {time}. (Note: Calendar update failed: {str(e)})"
 
 @function_tool
 def check_availability(service: str, date: str) -> str:
-    """Check availability for a specific service and date"""
-    return f"📅 Available times for {service} on {date}: 9:00 AM, 11:00 AM, 2:00 PM, 4:00 PM"
+    """Check availability for a specific service and date in January 2025"""
+    # Convert various date formats to January 2025 format
+    if "january" in date.lower() or "jan" in date.lower():
+        month_year = "January 2025"
+    elif "wednesday" in date.lower() or "wed" in date.lower():
+        month_year = "January 2025"
+    elif "thursday" in date.lower() or "thu" in date.lower():
+        month_year = "January 2025"
+    elif "friday" in date.lower() or "fri" in date.lower():
+        month_year = "January 2025"
+    elif "saturday" in date.lower() or "sat" in date.lower():
+        month_year = "January 2025"
+    elif "sunday" in date.lower() or "sun" in date.lower():
+        month_year = "January 2025"
+    elif "monday" in date.lower() or "mon" in date.lower():
+        month_year = "January 2025"
+    elif "tuesday" in date.lower() or "tue" in date.lower():
+        month_year = "January 2025"
+    else:
+        month_year = "January 2025"
+    
+    return f"📅 Available times for {service} on {date} in {month_year}: 9:00 AM, 11:00 AM, 2:00 PM, 4:00 PM"
+
+@function_tool
+def cancel_booking(customer_name: str, date: str, time: str) -> str:
+    """Cancel an existing booking"""
+    try:
+        # Broadcast calendar update to frontend
+        message = {
+            "type": "calendar_update",
+            "action": "remove_booking",
+            "agent_type": "salon",  # This would need to be dynamic based on business type
+            "data": {
+                "time": time,
+                "date": date,
+                "customer_name": customer_name,
+                "id": f"{date}_{time}_{customer_name}",
+                "service": "Cancelled"
+            }
+        }
+        websocket_handler.broadcast_message(message)
+        return f"❌ Booking cancelled for {customer_name} on {date} at {time}. You will receive a confirmation email shortly."
+    except Exception as e:
+        return f"❌ Booking cancelled for {customer_name} on {date} at {time}. (Note: Calendar update failed: {str(e)})"
+
+@function_tool
+def modify_booking(customer_name: str, old_date: str, old_time: str, new_date: str, new_time: str) -> str:
+    """Modify an existing booking"""
+    try:
+        # First cancel the old booking
+        cancel_message = {
+            "type": "calendar_update",
+            "action": "remove_booking",
+            "agent_type": "salon",
+            "data": {
+                "time": old_time,
+                "date": old_date,
+                "customer_name": customer_name,
+                "id": f"{old_date}_{old_time}_{customer_name}",
+                "service": "Modified"
+            }
+        }
+        websocket_handler.broadcast_message(cancel_message)
+        
+        # Then add the new booking
+        add_message = {
+            "type": "calendar_update",
+            "action": "add_booking",
+            "agent_type": "salon",
+            "data": {
+                "time": new_time,
+                "date": new_date,
+                "customer_name": customer_name,
+                "id": f"{new_date}_{new_time}_{customer_name}",
+                "service": "Modified Appointment"
+            }
+        }
+        websocket_handler.broadcast_message(add_message)
+        return f"🔄 Booking modified for {customer_name} from {old_date} at {old_time} to {new_date} at {new_time}. You will receive a confirmation email shortly."
+    except Exception as e:
+        return f"🔄 Booking modified for {customer_name} from {old_date} at {old_time} to {new_date} at {new_time}. (Note: Calendar update failed: {str(e)})"
+
+@function_tool
+def list_bookings(customer_name: str) -> str:
+    """List all bookings for a customer"""
+    # In a real app, this would query a database
+    return f"📋 Bookings for {customer_name}:\n- Wednesday 2:00 PM: Hair Cut\n- Friday 11:00 AM: Manicure\n- Next Monday 3:00 PM: Facial"
 
 @function_tool
 def get_menu() -> str:
@@ -41,14 +143,28 @@ def get_menu() -> str:
 @function_tool
 def make_reservation(
     customer_name: str,
-    party_size: int,
     date: str,
-    time: str,
-    phone: str,
-    special_requests: str = ""
+    time: str
 ) -> str:
-    """Make a restaurant reservation"""
-    return f"🍽️ Reservation confirmed for {customer_name} - Party of {party_size} on {date} at {time}. Phone: {phone}. Special requests: {special_requests}"
+    """Make a restaurant reservation - only requires name, date, and time"""
+    try:
+        # Broadcast calendar update to frontend
+        message = {
+            "type": "calendar_update",
+            "action": "add_booking",
+            "agent_type": "restaurant",
+            "data": {
+                "time": time,
+                "date": date,
+                "customer_name": customer_name,
+                "id": f"{date}_{time}_{customer_name}",
+                "service": "Restaurant Reservation"
+            }
+        }
+        websocket_handler.broadcast_message(message)
+        return f"🍽️ Reservation confirmed for {customer_name} on {date} at {time}. We'll call you to confirm the details closer to your reservation date."
+    except Exception as e:
+        return f"🍽️ Reservation confirmed for {customer_name} on {date} at {time}. (Note: Calendar update failed: {str(e)})"
 
 @function_tool
 def get_store_hours() -> str:
@@ -58,13 +174,10 @@ def get_store_hours() -> str:
 @function_tool
 def process_order(
     customer_name: str,
-    items: str,
-    total_amount: float,
-    payment_method: str,
-    shipping_address: str
+    items: str
 ) -> str:
-    """Process an e-commerce order"""
-    return f"🛒 Order processed for {customer_name}:\nItems: {items}\nTotal: ${total_amount}\nPayment: {payment_method}\nShipping to: {shipping_address}"
+    """Process an e-commerce order - only requires name and items"""
+    return f"🛒 Order processed for {customer_name}:\nItems: {items}\nWe'll contact you shortly to confirm payment and shipping details."
 
 @function_tool
 def track_order(order_id: str) -> str:
@@ -81,12 +194,27 @@ def schedule_dental_appointment(
     patient_name: str,
     procedure: str,
     date: str,
-    time: str,
-    phone: str,
-    insurance_info: str = ""
+    time: str
 ) -> str:
-    """Schedule a dental appointment"""
-    return f"🦷 Dental appointment scheduled for {patient_name} - {procedure} on {date} at {time}. Phone: {phone}. Insurance: {insurance_info}"
+    """Schedule a dental appointment - only requires name, procedure, date, and time"""
+    try:
+        # Broadcast calendar update to frontend
+        message = {
+            "type": "calendar_update",
+            "action": "add_booking",
+            "agent_type": "dentist",
+            "data": {
+                "time": time,
+                "date": date,
+                "customer_name": patient_name,
+                "id": f"{date}_{time}_{patient_name}",
+                "service": procedure
+            }
+        }
+        websocket_handler.broadcast_message(message)
+        return f"🦷 Dental appointment scheduled for {patient_name} - {procedure} on {date} at {time}. We'll call you to confirm insurance and other details."
+    except Exception as e:
+        return f"🦷 Dental appointment scheduled for {patient_name} - {procedure} on {date} at {time}. (Note: Calendar update failed: {str(e)})"
 
 @function_tool
 def check_dental_insurance(patient_name: str, insurance_provider: str) -> str:
@@ -102,11 +230,10 @@ def get_dental_services() -> str:
 def create_support_ticket(
     customer_name: str,
     issue_type: str,
-    description: str,
-    priority: str = "medium"
+    description: str
 ) -> str:
-    """Create a customer support ticket"""
-    return f"🎫 Support ticket created for {customer_name}:\nIssue: {issue_type}\nDescription: {description}\nPriority: {priority}\nTicket ID: SUPPORT-{hash(description) % 10000}"
+    """Create a customer support ticket - only requires name, issue type, and description"""
+    return f"🎫 Support ticket created for {customer_name}:\nIssue: {issue_type}\nDescription: {description}\nTicket ID: SUPPORT-{hash(description) % 10000}\nWe'll contact you within 24 hours to resolve this issue."
 
 @function_tool
 def check_ticket_status(ticket_id: str) -> str:
@@ -118,69 +245,32 @@ def escalate_ticket(ticket_id: str, reason: str) -> str:
     """Escalate a support ticket to higher priority"""
     return f"🚨 Ticket {ticket_id} escalated to senior support. Reason: {reason}. Priority updated to HIGH."
 
-# Agent configurations
+# Agent configurations - Lightweight chat agents
 AGENT_CONFIGS = {
     "restaurant": {
         "name": "Restaurant Assistant",
-        "greeting": "🍽️ Welcome to our restaurant! I can help you make reservations, check our menu, or answer any questions about our dining experience.",
-        "instructions": """You are a friendly restaurant assistant. Help customers with:
-        - Making reservations
-        - Checking menu items
-        - Providing store hours
-        - Answering questions about the restaurant
-        
-        Be warm, professional, and helpful. Always confirm details before booking.""",
-        "tools": [make_reservation, get_menu, get_store_hours]
+        "greeting": "🍽️ Welcome to Bella Vista Restaurant! I can help you with reservations, menu questions, or any dining inquiries. How can I assist you today?",
+        "emoji": "🍽️"
     },
     "salon": {
         "name": "Salon Assistant", 
-        "greeting": "💇‍♀️ Welcome to our salon! I can help you book appointments, check availability, or answer questions about our services.",
-        "instructions": """You are a professional salon assistant. Help customers with:
-        - Booking appointments for hair, nails, spa services
-        - Checking availability
-        - Providing service information
-        - Managing appointment changes
-        
-        Be friendly, professional, and detail-oriented.""",
-        "tools": [book_appointment, check_availability, get_store_hours]
+        "greeting": "💇‍♀️ Welcome to Glamour Studio! I can help you book appointments, check our services, or answer any beauty-related questions. How can I help you today?",
+        "emoji": "💇‍♀️"
     },
     "ecommerce": {
         "name": "E-commerce Assistant",
-        "greeting": "🛒 Welcome to our online store! I can help you with orders, product information, shipping, and any questions about our products.",
-        "instructions": """You are a helpful e-commerce assistant. Help customers with:
-        - Processing orders
-        - Tracking shipments
-        - Product information
-        - Returns and exchanges
-        - Payment questions
-        
-        Be efficient, helpful, and always confirm order details.""",
-        "tools": [process_order, track_order, get_product_info, get_store_hours]
+        "greeting": "🛒 Welcome to StyleHub Online Store! I can help you with orders, product information, shipping, or any shopping questions. How can I assist you today?",
+        "emoji": "🛒"
     },
     "dentist": {
         "name": "Dental Assistant",
-        "greeting": "🦷 Welcome to our dental practice! I can help you schedule appointments, check insurance, or answer questions about our dental services.",
-        "instructions": """You are a professional dental assistant. Help patients with:
-        - Scheduling dental appointments
-        - Checking insurance coverage
-        - Providing information about procedures
-        - Managing appointment changes
-        
-        Be professional, caring, and thorough with medical information.""",
-        "tools": [schedule_dental_appointment, check_dental_insurance, get_dental_services, get_store_hours]
+        "greeting": "🦷 Welcome to Bright Smile Dental Practice! I can help you schedule appointments, check insurance, or answer dental health questions. How can I help you today?",
+        "emoji": "🦷"
     },
     "support": {
         "name": "Customer Support",
-        "greeting": "🎫 Welcome to customer support! I'm here to help you with any technical issues, account questions, or general inquiries.",
-        "instructions": """You are a knowledgeable customer support agent. Help customers with:
-        - Technical troubleshooting
-        - Account issues
-        - Billing questions
-        - General inquiries
-        - Creating support tickets
-        
-        Be patient, thorough, and always try to resolve issues completely.""",
-        "tools": [create_support_ticket, check_ticket_status, escalate_ticket]
+        "greeting": "🎫 Welcome to TechSupport Solutions! I'm here to help you with technical issues, account questions, or any support needs. How can I assist you today?",
+        "emoji": "🎫"
     }
 }
 
@@ -188,7 +278,7 @@ class DemoTextAgent:
     """Text-based demo agent using OpenAI Agents SDK with multi-agent routing"""
     
     def __init__(self):
-        logger.info("🚀 Initializing DemoTextAgent with multi-agent routing...")
+        logger.info("🚀 Initializing DemoTextAgent with multi-agent ecosystem...")
         
         # Debug API key loading
         openai_key = os.getenv("OPENAI_API_KEY")
@@ -203,41 +293,62 @@ class DemoTextAgent:
         
         logger.info(f"🔑 Text agent API key loaded: {self.api_key[:10]}...")
         
-        # Create specialist agent instances
-        logger.info("🤖 Creating specialist agent instances...")
-        self.specialist_agents = {}
+        # Initialize session storage for conversation memory
+        self.sessions: Dict[str, SQLiteSession] = {}
+        logger.info("💾 Session memory initialized")
+        
+        # Create multi-agent ecosystem for each business type
+        logger.info("🏗️ Creating multi-agent ecosystem...")
+        self.agent_ecosystems = {}
+        
         for agent_type, config in AGENT_CONFIGS.items():
-            logger.info(f"  📝 Creating {agent_type} specialist agent...")
+            logger.info(f"  🏢 Creating ecosystem for {agent_type}...")
             try:
-                self.specialist_agents[agent_type] = Agent(
-                    name=config["name"],
-                    instructions=config["instructions"],
-                    tools=config["tools"]
-                )
-                logger.info(f"  ✅ {agent_type} specialist agent created successfully")
+                # Create the three specialized agents
+                chat_agent = create_chat_agent(agent_type)
+                policy_agent = create_policy_agent(agent_type)
+                tool_agent = create_tool_agent(agent_type)
+                
+                # Set up handoffs
+                chat_agent.handoffs = [
+                    policy_agent,  # For policy questions
+                    tool_agent     # For tool execution
+                ]
+                
+                # Policy and tool agents hand back to chat
+                policy_agent.handoffs = [chat_agent]
+                tool_agent.handoffs = [chat_agent]
+                
+                self.agent_ecosystems[agent_type] = {
+                    "chat": chat_agent,
+                    "policy": policy_agent,
+                    "tool": tool_agent
+                }
+                
+                logger.info(f"  ✅ {agent_type} ecosystem created successfully")
             except Exception as e:
-                logger.error(f"  ❌ Failed to create {agent_type} specialist agent: {e}")
+                logger.error(f"  ❌ Failed to create {agent_type} ecosystem: {e}")
                 raise
         
-        # Create triage agent for routing
-        logger.info("🎯 Creating triage agent for multi-agent routing...")
+        # Create triage agent for routing between business types
+        logger.info("🎯 Creating triage agent for business type routing...")
         try:
             self.triage_agent = Agent(
                 name="Triage Agent",
-                instructions="""You are a triage agent that routes customer requests to the appropriate specialist agent.
+                instructions="""You are a triage agent that routes customer requests to the appropriate business type.
 
-Available specialist agents:
+Available business types:
 - restaurant: For dining reservations, menu questions, restaurant services
 - salon: For beauty appointments, salon services, hair/nail bookings  
 - ecommerce: For online shopping, product orders, shipping, returns
 - dentist: For dental appointments, oral health, dental procedures
 - support: For technical issues, account problems, general customer service
 
-Analyze the customer's request and determine which specialist agent should handle it. 
-Respond with just the agent type (e.g., "restaurant", "salon", "ecommerce", "dentist", "support").
+Analyze the customer's request and determine which business type should handle it. 
+Respond with just the business type (e.g., "restaurant", "salon", "ecommerce", "dentist", "support").
 
-If the request is unclear or could be handled by multiple agents, choose the most appropriate one based on context.""",
-                handoffs=list(self.specialist_agents.values())
+If the request is unclear or could be handled by multiple business types, choose the most appropriate one based on context.""",
+                handoffs=[agent["chat"] for agent in self.agent_ecosystems.values()]
             )
             logger.info("✅ Triage agent created successfully")
         except Exception as e:
@@ -245,14 +356,22 @@ If the request is unclear or could be handled by multiple agents, choose the mos
             raise
         
         # Keep backward compatibility
-        self.agents = self.specialist_agents
+        self.agents = {agent_type: ecosystem["chat"] for agent_type, ecosystem in self.agent_ecosystems.items()}
         
-        logger.info(f"🎉 Successfully initialized multi-agent system:")
-        logger.info(f"  🎯 1 triage agent for routing")
-        logger.info(f"  🤖 {len(self.specialist_agents)} specialist agents: {list(self.specialist_agents.keys())}")
+        logger.info(f"🎉 Successfully initialized multi-agent ecosystem:")
+        logger.info(f"  🎯 1 triage agent for business routing")
+        logger.info(f"  🏢 {len(self.agent_ecosystems)} business ecosystems")
+        logger.info(f"  🤖 {len(self.agent_ecosystems) * 3} total agents (chat, policy, tool per business)")
+    
+    def get_session(self, session_id: str) -> SQLiteSession:
+        """Get or create a session for the given session_id"""
+        if session_id not in self.sessions:
+            self.sessions[session_id] = SQLiteSession(session_id)
+            logger.info(f"💾 Created new session: {session_id}")
+        return self.sessions[session_id]
     
     async def process_text_message(self, message: str, agent_type: str = None, session_id: str = "default") -> str:
-        """Process a text message using intelligent multi-agent routing"""
+        """Process a text message using intelligent multi-agent routing with user feedback"""
         logger.info(f"💬 Processing message: '{message[:50]}...' with agent_type: {agent_type}, session_id: {session_id}")
         
         try:
@@ -265,23 +384,33 @@ If the request is unclear or could be handled by multiple agents, choose the mos
                 # If no agent_type specified, use triage agent for intelligent routing
                 if agent_type is None or agent_type == "auto":
                     logger.info("🎯 Using triage agent for intelligent routing...")
-                    result = await Runner.run(self.triage_agent, message)
+                    
+                    # Get session for conversation memory
+                    session = self.get_session(session_id)
+                    logger.info(f"💾 Using session: {session_id}")
+                    
+                    result = await Runner.run(self.triage_agent, message, session=session)
                     logger.info(f"✅ Triage agent completed, final agent: {result.current_agent.name if hasattr(result, 'current_agent') else 'Unknown'}")
                     return result.final_output
                 
-                # If specific agent_type requested, use that agent directly
-                elif agent_type in self.specialist_agents:
-                    logger.info(f"🤖 Using specialist agent: {agent_type}")
-                    agent = self.specialist_agents[agent_type]
-                    logger.info(f"🚀 Calling Runner.run() with specialist agent...")
-                    result = await Runner.run(agent, message)
-                    logger.info(f"✅ Specialist agent completed successfully")
+                # If specific agent_type requested, use that agent's chat agent
+                elif agent_type in self.agent_ecosystems:
+                    logger.info(f"🤖 Using {agent_type} chat agent...")
+                    chat_agent = self.agent_ecosystems[agent_type]["chat"]
+                    
+                    # Get session for conversation memory
+                    session = self.get_session(session_id)
+                    logger.info(f"💾 Using session: {session_id}")
+                    
+                    logger.info(f"🚀 Calling Runner.run() with chat agent and session...")
+                    result = await Runner.run(chat_agent, message, session=session)
+                    logger.info(f"✅ Chat agent completed successfully")
                     logger.info(f"📝 Response length: {len(result.final_output) if result.final_output else 0} characters")
                     return result.final_output
                 
                 else:
-                    logger.error(f"❌ Invalid agent type '{agent_type}'. Available: {list(self.specialist_agents.keys())}")
-                    return f"Error: Invalid agent type '{agent_type}'. Available types: {list(self.specialist_agents.keys())}"
+                    logger.error(f"❌ Invalid agent type '{agent_type}'. Available: {list(self.agent_ecosystems.keys())}")
+                    return f"Error: Invalid agent type '{agent_type}'. Available types: {list(self.agent_ecosystems.keys())}"
                 
             finally:
                 # Restore original API key
@@ -311,7 +440,7 @@ If the request is unclear or could be handled by multiple agents, choose the mos
     
     def get_available_agents(self) -> list:
         """Get list of available agent types"""
-        return list(AGENT_CONFIGS.keys())
+        return list(self.agent_ecosystems.keys())
     
     def get_agent_info(self, agent_type: str) -> dict:
         """Get information about a specific agent"""
@@ -320,7 +449,14 @@ If the request is unclear or could be handled by multiple agents, choose the mos
             return {
                 "name": config["name"],
                 "greeting": config["greeting"],
-                "tools": [tool.__name__ for tool in config["tools"]]
+                "emoji": config.get("emoji", "🤖"),
+                "ecosystem": "Multi-agent (chat, policy, tool)",
+                "capabilities": [
+                    "Customer conversation",
+                    "Policy information lookup", 
+                    "Tool execution",
+                    "Intelligent handoffs"
+                ]
             }
         return None
     
@@ -328,8 +464,16 @@ If the request is unclear or could be handled by multiple agents, choose the mos
         """Get status of the text agent"""
         return {
             "api_key_loaded": bool(self.api_key),
-            "available_agents": len(self.agents),
-            "agent_types": list(self.agents.keys())
+            "available_agents": len(self.agent_ecosystems),
+            "agent_types": list(self.agent_ecosystems.keys()),
+            "ecosystem_type": "Multi-agent with handoffs",
+            "total_agents": len(self.agent_ecosystems) * 3,  # chat, policy, tool per business
+            "features": [
+                "Intelligent routing",
+                "Policy lookup with RAG",
+                "Tool execution",
+                "User feedback during handoffs"
+            ]
         }
     
     def get_session_status(self, session_id: str) -> dict:
