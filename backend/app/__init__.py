@@ -1,8 +1,22 @@
 from flask import Flask
 from app.extensions import db  # <== from extensions now
 import os
+import logging
 from flask_sock import Sock
 from flask_cors import CORS
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # This will print to console
+    ]
+)
 
 def create_app():
     here = os.path.abspath(os.path.dirname(__file__))
@@ -36,21 +50,16 @@ def create_app():
     from .routes.auth_routes import auth_bp
     from .routes.rag_routes import rag_bp
     from .routes.stripe_routes import stripe_bp
-    from .routes.demo_voice_routes import demo_voice_bp
-    from .routes.demo_text_routes import demo_text_bp
-
-    # Pass the sock instance to the demo routes
-    from .routes.demo_voice_routes import setup_sock
-    setup_sock(sock)
+    from .routes.demo_agent_routes import demo_agent_bp
     
     app.register_blueprint(assistant_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(stripe_bp, url_prefix="/stripe")
     app.register_blueprint(rag_bp)
     
-    # Register demo routes
-    app.register_blueprint(demo_voice_bp, url_prefix="/demo")
-    app.register_blueprint(demo_text_bp, url_prefix="/demo/text") 
+    # Register demo routes with correct API prefix
+    app.register_blueprint(demo_agent_bp, url_prefix="/api")
+    print("🔌 Registered demo Agent routes") 
 
     @app.route('/')
     def health_check():

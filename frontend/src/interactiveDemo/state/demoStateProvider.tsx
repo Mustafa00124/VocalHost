@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, type ReactNode } from 'react';
 
 // Types
 export interface Booking {
@@ -55,7 +55,7 @@ interface DemoStateContextType {
   updateCalendar: (agentType: string, bookings: Booking[]) => void;
   updateCRM: (agentType: string, customers: Customer[]) => void;
   updateShopping: (agentType: string, cart: CartItem[]) => void;
-  addBooking: (agentType: string, booking: Omit<Booking, 'id'>) => void;
+  addBooking: (agentType: string, booking: Omit<Booking, 'id'> | Booking) => void;
   cancelBooking: (agentType: string, bookingId: string) => void;
   addCustomer: (agentType: string, customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>) => void;
   removeCustomer: (agentType: string, customerId: string) => void;
@@ -123,11 +123,13 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     }));
   };
 
-  const addBooking = (agentType: string, booking: Omit<Booking, 'id'>) => {
-    const newBooking: Booking = {
-      ...booking,
-      id: `${booking.date}_${booking.time}_${booking.customerName}`
-    };
+  const addBooking = (agentType: string, booking: Omit<Booking, 'id'> | Booking) => {
+    const newBooking: Booking = 'id' in booking 
+      ? booking // Use provided ID if it exists
+      : {
+          ...booking,
+          id: `${booking.date}_${booking.time}_${booking.customerName}`
+        };
     setState(prev => ({
       ...prev,
       calendar: {

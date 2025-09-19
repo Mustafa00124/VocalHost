@@ -6,6 +6,7 @@ class WebSocketClient {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private demoState: any = null;
+  private messageCallbacks: ((message: any) => void)[] = [];
 
   constructor() {
     this.connect();
@@ -15,17 +16,34 @@ class WebSocketClient {
     this.demoState = demoState;
   }
 
+  addMessageCallback(callback: (message: any) => void) {
+    this.messageCallbacks.push(callback);
+  }
+
+  removeMessageCallback(callback: (message: any) => void) {
+    this.messageCallbacks = this.messageCallbacks.filter(cb => cb !== callback);
+  }
+
   connect() {
     try {
-      console.log('🔌 Attempting to connect to WebSocket: ws://localhost:5000/demo/ws');
-      this.ws = new WebSocket('ws://localhost:5000/demo/ws');
+      const url = 'ws://localhost:5000/demo/ws';
+      console.log("🔌 Connecting to WebSocket at", url);
+      this.ws = new WebSocket(url);
       
       this.ws.onopen = () => {
-        console.log('✅ Demo WebSocket connected successfully!');
+        console.log("✅ WebSocket connected");
         this.reconnectAttempts = 0;
+        
+        // Send initial connection message
+        this.sendMessage({
+          type: 'set_agent_type',
+          agent_type: 'restaurant'
+        });
+        console.log('📤 Sent initial agent type message');
       };
 
       this.ws.onmessage = (event) => {
+        console.log("📩 WS message:", event.data);
         try {
           const message = JSON.parse(event.data);
           this.handleMessage(message);
@@ -35,12 +53,12 @@ class WebSocketClient {
       };
 
       this.ws.onclose = (event) => {
-        console.log('❌ Demo WebSocket disconnected:', event.code, event.reason);
+        console.warn("⚠️ WS closed:", event.code, event.reason);
         this.attemptReconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error('❌ Demo WebSocket error:', error);
+        console.error("❌ WS error:", error);
       };
 
     } catch (error) {
@@ -66,36 +84,103 @@ class WebSocketClient {
     if (!this.demoState) return;
 
     switch (message.type) {
-      case 'calendar_update':
-        this.handleCalendarUpdate(message);
+      case 'state_update':
+        this.handleStateUpdate(message);
         break;
-      case 'crm_update':
-        this.handleCRMUpdate(message);
-        break;
-      case 'shopping_update':
-        this.handleShoppingUpdate(message);
-        break;
-      case 'agent_type_set':
-        console.log('Agent type set:', message.agent_type);
+      case 'response':
+        this.handleAgentResponse(message);
         break;
       case 'greeting':
-        console.log('Agent greeting:', message.agent_name, message.message);
+        console.log('Agent greeting:', message.message);
         this.handleAgentGreeting(message);
         break;
-      case 'voice_response':
-        console.log('Voice response:', message.response);
-        break;
-      case 'audio_output':
-        console.log('Audio output received:', message.audio_data);
-        this.handleAudioOutput(message);
-        break;
-      case 'agent_output':
-        console.log('Agent output:', message.output);
-        this.handleAgentOutput(message);
+      case 'error':
+        console.error('WebSocket error:', message.message);
+        // Notify callbacks about errors
+        this.messageCallbacks.forEach(callback => {
+          try {
+            callback({
+              type: 'error',
+              message: message.message
+            });
+          } catch (error) {
+            console.error('Error in error callback:', error);
+          }
+        });
         break;
       default:
         console.log('Unknown message type:', message.type);
     }
+  }
+
+  private handleStateUpdate(message: any) {
+    const { action, agentType, payload, messageId } = message;
+    console.log(`🔄 State update received: ${action} for ${agentType}`, payload);
+
+    try {
+      switch (action) {
+        case 'addBooking':
+          // payload should already contain the ID from backend
+          this.demoState.addBooking(agentType, payload);
+          break;
+        case 'cancelBooking':
+          this.demoState.cancelBooking(agentType, payload.id);
+          break;
+        case 'addCustomer':
+          this.demoState.addCustomer(agentType, payload);
+          break;
+        case 'removeCustomer':
+          this.demoState.removeCustomer(agentType, payload.id);
+          break;
+        case 'addToCart':
+          this.demoState.addToCart(agentType, payload);
+          break;
+        case 'removeFromCart':
+          this.demoState.removeFromCart(agentType, payload.id);
+          break;
+        case 'updateCartQuantity':
+          this.demoState.updateCartQuantity(agentType, payload.id, payload.quantity);
+          break;
+        default:
+          console.warn(`Unknown state update action: ${action}`);
+          this.sendAck(messageId, action, 'failed');
+          return;
+      }
+
+      // Send acknowledgment
+      this.sendAck(messageId, action, 'success');
+      console.log(`✅ State update applied: ${action} for ${agentType}`);
+    } catch (error) {
+      console.error(`❌ Error applying state update ${action}:`, error);
+      this.sendAck(messageId, action, 'failed');
+    }
+  }
+
+  private sendAck(messageId: string, action: string, status: 'success' | 'failed') {
+    this.sendMessage({
+      type: 'ack',
+      messageId: messageId,
+      action: action,
+      status: status
+    });
+  }
+
+  private handleAgentResponse(message: any) {
+    console.log('🤖 Agent response:', message.message);
+    
+    // Notify all registered callbacks
+    this.messageCallbacks.forEach(callback => {
+      try {
+        callback({
+          type: 'agent_response',
+          message: message.message,
+          agentType: message.agent_type,
+          sessionId: message.session_id
+        });
+      } catch (error) {
+        console.error('Error in message callback:', error);
+      }
+    });
   }
 
   private handleCalendarUpdate(message: any) {
@@ -201,6 +286,7 @@ class WebSocketClient {
 
   sendMessage(message: any) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log("📤 Sending WS message:", message);
       this.ws.send(JSON.stringify(message));
     } else {
       console.error('WebSocket is not connected');
@@ -211,6 +297,16 @@ class WebSocketClient {
     this.sendMessage({
       type: 'set_agent_type',
       agent_type: agentType
+    });
+  }
+
+  sendChatMessage(message: string, agentType: string, sessionId: string = 'default') {
+    console.log('📤 Sending chat message:', { message, agentType, sessionId });
+    this.sendMessage({
+      type: 'chat',
+      message: message,
+      agent_type: agentType,
+      session_id: sessionId
     });
   }
 

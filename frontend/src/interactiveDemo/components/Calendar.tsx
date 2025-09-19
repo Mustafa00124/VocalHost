@@ -20,10 +20,10 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
   // Get bookings from state instead of memory
   const bookings = state.calendar[agentType] || [];
 
-  // Generate time slots (8 AM to 6 PM)
-  const timeSlots = Array.from({ length: 11 }, (_, i) => {
-    const hour = 8 + i;
-    return `${hour}:00 ${hour < 12 ? 'AM' : hour === 12 ? 'PM' : 'PM'}`;
+  // Generate time slots (1 PM to 6 PM)
+  const timeSlots = Array.from({ length: 5 }, (_, i) => {
+    const hour = 13 + i; // Start at 1 PM (13:00)
+    return `${hour === 12 ? 12 : hour > 12 ? hour - 12 : hour}:00 PM`;
   });
 
   // Generate week days (limited to January 2025)
@@ -162,11 +162,22 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
       {/* Calendar Grid */}
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-6 gap-0 h-full">
-          {/* Time column */}
-          <div className={`p-2 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
-            <div className="space-y-1">
+          {/* Time column with matching header */}
+          <div className={`flex flex-col ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            {/* Time column header - matches day header height */}
+            <div className={`p-2 text-center border-b ${theme === 'dark' ? 'border-gray-700 bg-gray-700' : 'border-gray-200 bg-gray-50'}`}>
+              <div className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                TIME
+              </div>
+              <div className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                SLOTS
+              </div>
+            </div>
+            
+            {/* Time slots */}
+            <div className="flex-1">
               {timeSlots.map((time) => (
-                <div key={time} className={`h-12 flex items-center text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                <div key={time} className={`h-12 border-b flex items-center justify-center text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
                   {time}
                 </div>
               ))}

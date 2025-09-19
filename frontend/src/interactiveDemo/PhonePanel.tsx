@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
-import { websocketClient } from './websocket/websocketClient';
+// WebSocket import removed - now using HTTP API
 import { useDemoState } from './state/demoStateProvider';
 
 interface PhonePanelProps {
@@ -36,7 +36,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   onMuteToggle
 }) => {
   const { theme } = useTheme();
-  const { addBooking } = useDemoState();
+  const { addBooking, cancelBooking } = useDemoState();
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentAiMessage, setCurrentAiMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -113,18 +113,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   // Send audio to backend
   const sendAudioToBackend = (audioBlob: Blob) => {
     if (!isMuted) {
-      // Convert blob to base64 and send via WebSocket
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64Audio = (reader.result as string).split(',')[1];
-        websocketClient.sendMessage({
-          type: 'voice_input',
-          audio_data: base64Audio,
-          format: 'webm'
-        });
-        console.log('🎤 Audio sent to backend');
-      };
-      reader.readAsDataURL(audioBlob);
+      // Voice functionality temporarily disabled - using text chat only
+      console.log('🎤 Voice input received but not processed (text chat only mode)');
     }
   };
 
@@ -140,11 +130,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       await initializeMicrophone();
       startRecording();
       
-      // Send start voice session message
-      websocketClient.sendMessage({
-        type: 'start_voice_session',
-        agent_type: 'restaurant' // This should come from props
-      });
+      // Voice session started (WebSocket disabled)
+      console.log('📞 Voice session started');
     } else {
       // End call
       console.log('📞 Ending call...');
@@ -158,10 +145,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         streamRef.current = null;
       }
       
-      // Send stop voice session message
-      websocketClient.sendMessage({
-        type: 'stop_voice_session'
-      });
+      // Voice session cleanup (WebSocket disabled)
+      console.log('📞 Voice session ended');
     }
   };
 
@@ -175,13 +160,13 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
 
   // Parse booking confirmation from text response
   const parseBookingConfirmation = (responseText: string, agentType: string) => {
-    // Look for booking confirmation patterns
+    // Look for booking confirmation patterns - updated to match actual agent responses
     const bookingPatterns = {
-      restaurant: /Reservation confirmed for (.+?) - Party of (\d+) on (.+?) at (.+?)\./i,
-      salon: /Appointment booked for (.+?) - (.+?) on (.+?) at (.+?)\./i,
-      dentist: /Dental appointment scheduled for (.+?) - (.+?) on (.+?) at (.+?)\./i,
-      ecommerce: /Order processed for (.+?):\s*Items: (.+?)\./i,
-      support: /Support ticket created for (.+?):\s*Issue: (.+?)\s*Description: (.+?)\./i
+      restaurant: /Reservation confirmed for (.+?) on (.+?) at (.+?)\. Booking ID: (.+)/i,
+      salon: /Appointment booked for (.+?) - (.+?) on (.+?) at (.+?)\. Appointment ID: (.+)/i,
+      dentist: /Dental appointment scheduled for (.+?) - (.+?) on (.+?) at (.+?)\. Appointment ID: (.+)/i,
+      ecommerce: /Added to cart: (\d+)x (.+?) at \$\d+\.\d+ each \(Total: \$\d+\.\d+\)\. Cart Item ID: (.+)/i,
+      support: /Customer added to CRM: (.+?) \(ID: (.+?)\)\nEmail: (.+?)\nPhone: (.+)/i
     };
 
     const pattern = bookingPatterns[agentType as keyof typeof bookingPatterns];
@@ -192,63 +177,65 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
 
     // Extract booking details based on agent type
     if (agentType === 'restaurant') {
-      const [, customerName, partySize, date, time] = match;
+      const [, customerName, date, time, bookingId] = match;
       return {
         type: 'booking',
         data: {
-          id: `${date}_${time}_${customerName}`,
+          id: bookingId,
           customer_name: customerName,
           time: time,
           date: date,
-          party_size: parseInt(partySize),
-          service: 'Restaurant Reservation'
-        }
-      };
-    } else if (agentType === 'salon') {
-      const [, customerName, service, date, time] = match;
-      return {
-        type: 'booking',
-        data: {
-          id: `${date}_${time}_${customerName}`,
-          customer_name: customerName,
-          time: time,
-          date: date,
-          service: service
-        }
-      };
-    } else if (agentType === 'dentist') {
-      const [, customerName, procedure, date, time] = match;
-      return {
-        type: 'booking',
-        data: {
-          id: `${date}_${time}_${customerName}`,
-          customer_name: customerName,
-          time: time,
-          date: date,
-          service: procedure
-        }
-      };
-    } else if (agentType === 'ecommerce') {
-      const [, customerName, items] = match;
-      return {
-        type: 'order',
-        data: {
-          id: `order_${Date.now()}_${customerName}`,
-          customer_name: customerName,
-          items: items,
+          service: 'Restaurant Reservation',
           status: 'confirmed'
         }
       };
-    } else if (agentType === 'support') {
-      const [, customerName, issueType, description] = match;
+    } else if (agentType === 'salon') {
+      const [, customerName, service, date, time, appointmentId] = match;
       return {
-        type: 'ticket',
+        type: 'booking',
         data: {
-          id: `ticket_${Date.now()}_${customerName}`,
+          id: appointmentId,
           customer_name: customerName,
-          issue_type: issueType,
-          description: description,
-          status: 'open'
+          time: time,
+          date: date,
+          service: service,
+          status: 'confirmed'
+        }
+      };
+    } else if (agentType === 'dentist') {
+      const [, customerName, procedure, date, time, appointmentId] = match;
+      return {
+        type: 'booking',
+        data: {
+          id: appointmentId,
+          customer_name: customerName,
+          time: time,
+          date: date,
+          service: procedure,
+          status: 'confirmed'
+        }
+      };
+    } else if (agentType === 'ecommerce') {
+      const [, quantity, productName, cartItemId] = match;
+      return {
+        type: 'cart',
+        data: {
+          id: cartItemId,
+          productName,
+          quantity: parseInt(quantity),
+          status: 'added'
+        }
+      };
+    } else if (agentType === 'support') {
+      const [, customerName, customerId, email, phone] = match;
+      return {
+        type: 'customer',
+        data: {
+          id: customerId,
+          name: customerName,
+          email,
+          phone,
+          status: 'added'
         }
       };
     }
@@ -256,26 +243,101 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     return null;
   };
 
-  // Update calendar based on booking confirmation
-  const handleBookingConfirmation = (bookingData: any, agentType: string) => {
-    if (bookingData.type === 'booking') {
+  // Process structured actions from tools
+  const processStructuredAction = (action: any, agentType: string) => {
+    console.log('🔄 Processing structured action:', action);
+    
+    switch (action.type) {
+      case 'add_booking':
+        console.log('🔍 DEBUG - Raw action data:', action.data);
+        
+        // Convert time format - handle both 24-hour and 12-hour formats
+        const convertTimeFormat = (time: string) => {
+          console.log('🔍 DEBUG - Converting time:', time);
+          
+          // If already in 12-hour format (contains AM/PM), return as is
+          if (time.includes('AM') || time.includes('PM')) {
+            console.log('🔍 DEBUG - Already in 12-hour format:', time);
+            return time;
+          }
+          
+          // Convert from 24-hour format
+          const [hours, minutes] = time.split(':');
+          const hour24 = parseInt(hours);
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          const result = `${hour12}:${minutes} ${ampm}`;
+          console.log('🔍 DEBUG - Converted from 24-hour to 12-hour:', result);
+          return result;
+        };
+        
+        const newBooking = {
+          id: action.data.id, // Use backend-provided ID
+          time: convertTimeFormat(action.data.time), // Convert to 12-hour format
+          date: action.data.date,
+          customerName: action.data.customer_name,
+          customerEmail: '',
+          service: action.data.service || '',
+          status: 'confirmed' as const
+        };
+        
+        console.log('🔍 DEBUG - Final booking object:', newBooking);
+        addBooking(action.agent_type || agentType, newBooking);
+        console.log('📅 Calendar updated with new booking:', newBooking);
+        break;
+        
+      case 'cancel_booking':
+        cancelBooking(action.agent_type || agentType, action.data.id);
+        console.log('📅 Booking cancelled:', action.data);
+        break;
+        
+      case 'add_customer':
+        console.log('👤 Customer added to CRM:', action.data);
+        // You can add CRM state management here if needed
+        break;
+        
+      case 'add_to_cart':
+        console.log('🛒 Cart item added:', action.data);
+        // You can add cart state management here if needed
+        break;
+        
+      default:
+        console.log('❓ Unknown action type:', action.type);
+    }
+  };
+
+  // Update demo state based on agent response (fallback for text parsing)
+  const handleBookingConfirmation = (responseData: any, agentType: string) => {
+    console.log('🔄 Processing state update (text parsing fallback):', responseData);
+    
+    if (responseData.type === 'booking') {
       const newBooking = {
-        time: bookingData.data.time,
-        date: bookingData.data.date,
-        customerName: bookingData.data.customer_name,
+        time: responseData.data.time,
+        date: responseData.data.date,
+        customerName: responseData.data.customer_name,
         customerEmail: '',
-        service: bookingData.data.service || '',
+        service: responseData.data.service || '',
         status: 'confirmed' as const
       };
 
       addBooking(agentType, newBooking);
       console.log('📅 Calendar updated with new booking:', newBooking);
+    } else if (responseData.type === 'cart') {
+      // Handle cart updates
+      console.log('🛒 Cart item added:', responseData.data);
+      // You can add cart state management here if needed
+    } else if (responseData.type === 'customer') {
+      // Handle customer/CRM updates
+      console.log('👤 Customer added to CRM:', responseData.data);
+      // You can add CRM state management here if needed
     }
   };
 
-  // Send message function
+  // Send message function using WebSocket
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
+
+    console.log('📤 PhonePanel: Sending message:', inputMessage, 'to agent:', agentType);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -288,43 +350,51 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     setInputMessage('');
     setIsLoading(true);
 
+    // Send message via HTTP API
     try {
-      const response = await fetch('http://localhost:5000/demo/text/chat', {
+      console.log('📤 PhonePanel: Sending HTTP request to /api/chat');
+      const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputMessage,
-          agent_type: agentType,
-          session_id: 'chat-session'
+          agentType,
+          sessionId: 'chat-session',
         }),
       });
 
-      const data = await response.json();
+      console.log('📥 PhonePanel: Response status:', res.status);
+      const data = await res.json();
+      console.log('📥 PhonePanel: Response data:', data);
 
-      if (data.status === 'success') {
+      if (data.type === 'agent_response') {
+        console.log('🤖 PhonePanel: Processing agent response:', data.message);
         const agentMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: data.response,
+          text: data.message,
           sender: 'ai',
           timestamp: new Date()
         };
         setMessages(prev => [...prev, agentMessage]);
 
-        // Check if this is a booking confirmation and update calendar
-        if (data.booking_data) {
-          // Use booking data from HTTP response
-          handleBookingConfirmation(data.booking_data, agentType);
-          console.log('📅 Calendar updated from HTTP response:', data.booking_data);
+        // Process structured actions if available
+        if (data.actions && Array.isArray(data.actions)) {
+          console.log('🔄 FRONTEND - Processing structured actions:', data.actions);
+          data.actions.forEach((action: any) => {
+            processStructuredAction(action, agentType);
+          });
         } else {
-          // Fallback to parsing response text
-          const bookingConfirmation = parseBookingConfirmation(data.response, agentType);
+          // Fallback to text parsing for backward compatibility
+          const bookingConfirmation = parseBookingConfirmation(data.message, agentType);
           if (bookingConfirmation) {
+            console.log('📅 FRONTEND - Booking confirmation detected via text parsing:', bookingConfirmation);
             handleBookingConfirmation(bookingConfirmation, agentType);
+          } else {
+            console.log('ℹ️ FRONTEND - No booking confirmation detected in response');
           }
         }
-      } else {
+      } else if (data.type === 'error') {
+        console.error('❌ PhonePanel: Error response:', data.message);
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: `Error: ${data.message}`,
@@ -333,10 +403,11 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         };
         setMessages(prev => [...prev, errorMessage]);
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('❌ PhonePanel: Failed to send message:', err);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: `Connection error: ${error}`,
+        text: `Error: Failed to connect to server.`,
         sender: 'ai',
         timestamp: new Date()
       };
@@ -346,6 +417,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
   };
 
+  // Note: WebSocket message handling removed - now using HTTP API directly in sendMessage
+  
   // Cleanup on unmount
   useEffect(() => {
     return () => {

@@ -1,31 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarIcon, UserCircleIcon, SunIcon, MoonIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, UserCircleIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { FaGoogle } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { memo, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-// Memoize the theme toggle button to prevent unnecessary re-renders
-const ThemeToggle = memo(({ theme, toggleTheme }: { theme: 'dark' | 'light', toggleTheme: () => void }) => {
-  return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={toggleTheme}
-      className={`p-2 rounded-full ${theme === 'dark' 
-        ? 'text-yellow-400 hover:bg-gray-800' 
-        : 'text-gray-600 hover:bg-gray-200'}`}
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {theme === 'dark' ? (
-        <SunIcon className="w-4 h-4" />
-      ) : (
-        <MoonIcon className="w-4 h-4" />
-      )}
-    </motion.button>
-  );
-});
 
 // Scroll helper function
 const scrollToSection = (sectionId: string) => {
@@ -102,10 +82,9 @@ const Navbar = () => {
           
           {/* Mobile Menu Button */}
           <div className="flex items-center lg:hidden">
-            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
             <button 
               onClick={toggleMenu}
-              className="p-2 ml-2 rounded-md focus:outline-none"
+              className="p-2 rounded-md focus:outline-none"
               aria-label="Toggle menu"
             >
               {isMenuOpen ? (
@@ -204,8 +183,6 @@ const Navbar = () => {
                 />
               </>
             )}
-            
-            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
             
             {!loading && (
               user ? (
@@ -495,12 +472,12 @@ const NavButton = ({ onClick, label, className = "", icon }: { onClick: () => vo
   return (
     <motion.div
       whileHover={{ 
-        scale: 1.02,
-        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+        scale: 1.05,
+        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
       }}
       whileTap={{ 
-        scale: 0.98,
-        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+        scale: 0.95,
+        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
       }}
     >
       <button
@@ -508,8 +485,8 @@ const NavButton = ({ onClick, label, className = "", icon }: { onClick: () => vo
         className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
         style={{
           background: '#e6e7ee',
-          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+          border: '1px solid rgba(147, 51, 234, 0.3)',
           color: '#44476A'
         }}
       >
@@ -525,12 +502,12 @@ const NavLink = ({ to, label, className = "", icon, onClick }: { to: string; lab
   return (
     <motion.div
       whileHover={{ 
-        scale: 1.02,
-        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+        scale: 1.05,
+        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
       }}
       whileTap={{ 
-        scale: 0.98,
-        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+        scale: 0.95,
+        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
       }}
     >
       <Link
@@ -539,8 +516,8 @@ const NavLink = ({ to, label, className = "", icon, onClick }: { to: string; lab
         className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
         style={{
           background: '#e6e7ee',
-          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+          border: '1px solid rgba(147, 51, 234, 0.3)',
           color: '#44476A'
         }}
       >
@@ -559,17 +536,17 @@ const MobileNavButton = ({ onClick, label, className = "", icon }: { onClick: ()
       onClick={onClick}
       whileHover={{ 
         scale: 1.02,
-        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
       }}
       whileTap={{ 
         scale: 0.98,
-        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
       }}
       className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
       style={{
         background: '#e6e7ee',
-        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+        border: '1px solid rgba(147, 51, 234, 0.3)',
         color: '#44476A'
       }}
     >
@@ -585,11 +562,11 @@ const MobileNavLink = ({ to, label, className = "", icon, onClick }: { to: strin
     <motion.div
       whileHover={{ 
         scale: 1.02,
-        boxShadow: 'inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff'
+        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
       }}
       whileTap={{ 
         scale: 0.98,
-        boxShadow: 'inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff'
+        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
       }}
     >
       <Link
@@ -598,8 +575,8 @@ const MobileNavLink = ({ to, label, className = "", icon, onClick }: { to: strin
         className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
         style={{
           background: '#e6e7ee',
-          boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
+          border: '1px solid rgba(147, 51, 234, 0.3)',
           color: '#44476A'
         }}
       >

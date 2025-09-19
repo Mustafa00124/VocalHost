@@ -7,7 +7,7 @@ import PhonePanel from './PhonePanel';
 import LeftScreenPanel from './LeftScreenPanel';
 import TipCards from './TipCards';
 import { DemoStateProvider } from './state/demoStateProvider';
-import { websocketClient } from './websocket/websocketClient';
+// WebSocket import removed - using HTTP API
 import { useAgentSync } from './hooks/useAgentSync';
 
 interface DemoWidgetProps {
@@ -54,7 +54,7 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
     setCallStartTime(null);
     
     // Notify WebSocket of agent change
-    websocketClient.setAgentType(agentId);
+    // Agent type sync removed - using HTTP API
   };
 
   if (!currentAgent) {
