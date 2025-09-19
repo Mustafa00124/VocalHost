@@ -62,6 +62,7 @@ interface DemoStateContextType {
   addToCart: (agentType: string, item: Omit<CartItem, 'id' | 'addedAt'>) => void;
   removeFromCart: (agentType: string, itemId: string) => void;
   updateCartQuantity: (agentType: string, itemId: string, quantity: number) => void;
+  getAvailableSlots: (agentType: string, date: string) => { available: string[], booked: string[] };
 }
 
 const DemoStateContext = createContext<DemoStateContextType | undefined>(undefined);
@@ -121,6 +122,17 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
         [agentType]: cart
       }
     }));
+  };
+
+  // Helper function to get available slots for a specific date
+  const getAvailableSlots = (agentType: string, date: string): { available: string[], booked: string[] } => {
+    const allSlots = ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM"];
+    const bookings = state.calendar[agentType]?.filter(b => b.date === date && b.status === 'confirmed') || [];
+
+    const booked = bookings.map(b => b.time);
+    const available = allSlots.filter(slot => !booked.includes(slot));
+
+    return { available, booked };
   };
 
   const addBooking = (agentType: string, booking: Omit<Booking, 'id'> | Booking) => {
@@ -226,7 +238,8 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     removeCustomer,
     addToCart,
     removeFromCart,
-    updateCartQuantity
+    updateCartQuantity,
+    getAvailableSlots
   };
 
   return (

@@ -163,3 +163,48 @@ def availability_endpoint():
             "type": "error",
             "message": f"Error: {str(e)}"
         }), 500
+
+
+@demo_agent_bp.route("/tool-result", methods=["POST"])
+def tool_result_endpoint():
+    """Endpoint for frontend to send tool results back to backend"""
+    try:
+        data = request.get_json(force=True)
+        print("🔧 TOOL RESULT ENDPOINT - Incoming request")
+        print(f"📥 Tool result payload: {data}")
+        logger.info("🔧 TOOL RESULT ENDPOINT - Incoming request")
+        logger.info(f"📥 Tool result payload: {data}")
+        
+        tool_name = data.get("tool_name")
+        output = data.get("output")
+        agent_type = data.get("agent_type", "restaurant")
+        session_id = data.get("session_id", "chat-session")
+        date = data.get("date", "")
+        
+        if not tool_name or not output:
+            return jsonify({
+                "type": "error",
+                "message": "tool_name and output are required"
+            }), 400
+        
+        # For now, just log the tool result
+        # In a real implementation, this would be sent back to the LLM
+        print(f"📤 Tool result received: {tool_name} for {agent_type} on {date}")
+        print(f"📊 Output: {output}")
+        logger.info(f"📤 Tool result received: {tool_name} for {agent_type} on {date}")
+        logger.info(f"📊 Output: {output}")
+        
+        # TODO: Send this result back to the LLM conversation
+        # This would involve calling the agent SDK to add the tool result
+        
+        return jsonify({
+            "type": "success",
+            "message": "Tool result received successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ TOOL RESULT ENDPOINT ERROR: {str(e)}", exc_info=True)
+        return jsonify({
+            "type": "error",
+            "message": f"Error: {str(e)}"
+        }), 500

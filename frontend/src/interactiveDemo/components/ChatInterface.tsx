@@ -14,7 +14,7 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ agentType, onBackToCall }) => {
-  const { addBooking, cancelBooking } = useDemoState();
+  const { addBooking, cancelBooking, getAvailableSlots } = useDemoState();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -199,6 +199,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ agentType, onBackToCall }
       case 'cancel_booking':
         cancelBooking(action.agent_type || agentType, action.data.id);
         console.log('📅 Booking cancelled:', action.data);
+        break;
+        
+      case 'check_availability':
+        console.log('🔍 DEBUG - Checking availability for:', action.data);
+        const { date } = action.data;
+        const slots = getAvailableSlots(action.agent_type || agentType, date);
+        
+        console.log('🔍 DEBUG - Available slots:', slots);
+        
+        // Send tool result back to backend
+        fetch('/api/tool-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool_name: 'check_availability',
+            output: slots,
+            agent_type: action.agent_type || agentType,
+            session_id: 'chat-session',
+            date: date
+          })
+        }).then(response => {
+          if (response.ok) {
+            console.log('✅ Tool result sent to backend successfully');
+          } else {
+            console.error('❌ Failed to send tool result to backend');
+          }
+        }).catch(error => {
+          console.error('❌ Error sending tool result:', error);
+        });
         break;
         
       case 'add_customer':

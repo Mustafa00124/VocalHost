@@ -56,44 +56,26 @@ def book_reservation(customer_name: str, date: str, time: str, connection_id: st
 
 
 @function_tool
-def check_availability(date: str, connection_id: str = None) -> str:
-    """Check available reservation times for a specific date by querying the backend state"""
+def check_availability(date: str, connection_id: str = None) -> dict:
+    """Check available reservation times for a specific date by querying the frontend state"""
     logger.info(f"🔧 TOOL CALLED: check_availability")
     logger.info(f"📝 Parameters - date: {date}, connection_id: {connection_id}")
     
-    try:
-        # Call the backend to get real availability data
-        import requests
-        
-        # Make request to backend availability endpoint
-        response = requests.post('http://localhost:5000/api/availability', 
-                               json={
-                                   'agentType': 'restaurant',
-                                   'date': date
-                               },
-                               timeout=5)
-        
-        if response.status_code == 200:
-            data = response.json()
-            available_slots = data.get('availableSlots', [])
-            
-            if available_slots:
-                slots_str = ", ".join(available_slots)
-                result_msg = f"📅 Available times for {date}: {slots_str}"
-            else:
-                result_msg = f"📅 No available times for {date} - all slots are booked"
-            
-            logger.info(f"✅ TOOL RESULT: {result_msg}")
-            return result_msg
-        else:
-            error_msg = f"❌ Failed to check availability: HTTP {response.status_code}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
-            
-    except Exception as e:
-        error_msg = f"❌ Error checking availability for {date}: {str(e)}"
-        logger.error(error_msg)
-        raise Exception(error_msg)
+    # Create structured response that will be processed by frontend
+    result = {
+        "success": True,
+        "message": f"🔍 Checking availability for {date}...",
+        "actions": [{
+            "type": "check_availability",
+            "agent_type": "restaurant",
+            "data": {
+                "date": date
+            }
+        }]
+    }
+    
+    logger.info(f"✅ TOOL RESULT: {result}")
+    return result
 
 
 @function_tool
