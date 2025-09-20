@@ -63,6 +63,7 @@ interface DemoStateContextType {
   removeFromCart: (agentType: string, itemId: string) => void;
   updateCartQuantity: (agentType: string, itemId: string, quantity: number) => void;
   getAvailableSlots: (agentType: string, date: string) => { available: string[], booked: string[] };
+  checkBooking: (agentType: string, customerName: string, date: string, time: string) => { exists: boolean, booking?: Booking };
 }
 
 const DemoStateContext = createContext<DemoStateContextType | undefined>(undefined);
@@ -133,6 +134,21 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     const available = allSlots.filter(slot => !booked.includes(slot));
 
     return { available, booked };
+  };
+
+  const checkBooking = (agentType: string, customerName: string, date: string, time: string): { exists: boolean, booking?: Booking } => {
+    const bookings = state.calendar[agentType] || [];
+    const booking = bookings.find(b => 
+      b.customerName.toLowerCase() === customerName.toLowerCase() && 
+      b.date === date && 
+      b.time === time && 
+      b.status === 'confirmed'
+    );
+    
+    return {
+      exists: !!booking,
+      booking: booking || undefined
+    };
   };
 
   const addBooking = (agentType: string, booking: Omit<Booking, 'id'> | Booking) => {
@@ -239,7 +255,8 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     addToCart,
     removeFromCart,
     updateCartQuantity,
-    getAvailableSlots
+    getAvailableSlots,
+    checkBooking
   };
 
   return (

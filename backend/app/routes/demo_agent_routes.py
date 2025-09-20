@@ -134,9 +134,38 @@ def availability_tool_result_endpoint():
         logger.info(f"📤 Tool result received: {tool_name} for {agent_type} on {date}")
         logger.info(f"📊 Output: {output}")
         
-        # Feed the tool result back into the agent conversation
-        # Create a message that simulates the tool returning its result
-        tool_result_message = f"Tool {tool_name} completed successfully. Result: {json.dumps(output)}"
+        # Handle different tool result types
+        if tool_name == 'check_booking':
+            # Handle booking verification result from frontend
+            success = output.get('success', False)
+            cancelled = output.get('cancelled', False)
+            message = output.get('message', '')
+            
+            if success and cancelled:
+                # Booking was successfully cancelled in frontend
+                customer_name = data.get('customer_name', '')
+                booking_date = data.get('date', '')
+                booking_time = data.get('time', '')
+                
+                print(f"✅ Booking successfully cancelled in frontend for {customer_name} on {booking_date} at {booking_time}")
+                logger.info(f"✅ Booking successfully cancelled in frontend for {customer_name} on {booking_date} at {booking_time}")
+                
+                # Create success message for agent
+                tool_result_message = f"Booking cancellation successful. {message} Please confirm to the customer that their reservation has been cancelled."
+            else:
+                # Booking not found or cancellation failed
+                customer_name = data.get('customer_name', '')
+                booking_date = data.get('date', '')
+                booking_time = data.get('time', '')
+                
+                print(f"❌ Booking not found or cancellation failed for {customer_name} on {booking_date} at {booking_time}")
+                logger.info(f"❌ Booking not found or cancellation failed for {customer_name} on {booking_date} at {booking_time}")
+                
+                # Create not found message for agent
+                tool_result_message = f"Booking cancellation failed. {message} Please inform the customer that no such booking exists."
+        else:
+            # Handle other tool results (like check_availability)
+            tool_result_message = f"Tool {tool_name} completed successfully. Result: {json.dumps(output)}"
         
         print(f"🔄 Feeding tool result back to agent: {tool_result_message}")
         logger.info(f"🔄 Feeding tool result back to agent: {tool_result_message}")

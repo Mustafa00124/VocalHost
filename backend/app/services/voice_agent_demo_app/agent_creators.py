@@ -80,29 +80,23 @@ def check_availability(date: str, connection_id: str = None) -> dict:
 
 @function_tool
 def cancel_booking(customer_name: str, date: str, time: str, connection_id: str = None) -> dict:
-    """Cancel an existing restaurant reservation - returns structured data for frontend"""
+    """Cancel an existing restaurant reservation - first checks if booking exists"""
     print(f"🔧 TOOL CALLED: cancel_booking")
     print(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
     logger.info(f"🔧 TOOL CALLED: cancel_booking")
     logger.info(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
     
-    booking_id = f"{date}_{time}_{customer_name}"
-    logger.info(f"🆔 Generated booking_id: {booking_id}")
-    
-    # Create structured response
+    # Create structured response to check booking first
     result = {
         "success": True,
-        "message": f"❌ Reservation cancelled for {customer_name} on {date} at {time}",
+        "message": f"Let me check that booking for {customer_name} on {date} at {time}",
         "actions": [{
-            "type": "cancel_booking",
+            "type": "check_booking",
             "agent_type": "restaurant",
             "data": {
-                "id": booking_id,
                 "customer_name": customer_name,
                 "date": date,
-                "time": time,
-                "service": "Restaurant Reservation",
-                "status": "cancelled"
+                "time": time
             }
         }]
     }
@@ -110,6 +104,8 @@ def cancel_booking(customer_name: str, date: str, time: str, connection_id: str 
     print(f"✅ TOOL RESULT: {result}")
     logger.info(f"✅ TOOL RESULT: {result}")
     return result
+
+
 
 # CRM Functions
 
@@ -423,15 +419,28 @@ def create_restaurant_agent() -> Agent:
         name=config.get("name", "Restaurant Assistant"),
         instructions=f"""You are a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
         
+        BUSINESS CONTEXT:
+        - We only take reservations for January 2025
+        - Available times are Monday-Friday from 1:00 PM to 6:00 PM
+        - All dates should be formatted as "2025-01-XX" (e.g., "2025-01-08" for January 8th)
+        - Times should be in 12-hour format (e.g., "1:00 PM", "2:00 PM", etc.)
+        
         You can help customers with:
         - Making reservations using book_reservation(customer_name, date, time)
         - Checking availability using check_availability(date)
         - Canceling bookings using cancel_booking(customer_name, date, time)
         
-        IMPORTANT: When customers ask to check availability, immediately use the check_availability tool without asking additional questions. Just say "Let me check that for you, please wait a moment" and use the tool.
+        IMPORTANT - RESPONSE PATTERN:
+        - When customers ask to check availability: Say "Let me check that for you, please wait a moment" and use check_availability tool. Do NOT provide availability times in the first response.
+        - When customers ask to cancel a booking: Say "Let me check that booking for you, please wait a moment" and use cancel_booking tool. Do NOT confirm cancellation in the first response.
+        - When customers ask to make a reservation: Say "Let me book that for you, please wait a moment" and use book_reservation tool. Do NOT confirm booking in the first response.
         
-        When making reservations, ask for the customer's name, preferred date, and time.
+        The system will handle the verification and provide the actual results in a second response after the tool execution.
+        
+        For reservations, extract the customer name, date (convert to 2025-01-XX format), and time from the customer's request. Do not ask for confirmation of year or month - assume all bookings are for January 2025.
+        
         When checking availability, provide specific available times after getting the results.
+        When cancelling bookings, the system will automatically check if the booking exists and cancel it if found, or inform you if it doesn't exist.
         
         Use the appropriate tools when customers request these services.""",
         tools=tools

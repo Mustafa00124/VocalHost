@@ -36,7 +36,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   onMuteToggle
 }) => {
   const { theme } = useTheme();
-  const { addBooking, cancelBooking, getAvailableSlots } = useDemoState();
+  const { addBooking, cancelBooking, getAvailableSlots, checkBooking } = useDemoState();
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentAiMessage, setCurrentAiMessage] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -340,6 +340,123 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         }).catch(error => {
           console.error('❌ Error sending tool result:', error);
         });
+        break;
+        
+      case 'check_booking':
+        console.log('🔍 DEBUG - Checking booking for:', action.data);
+        const { customer_name, date: bookingDate, time } = action.data;
+        const bookingCheck = checkBooking(action.agent_type || agentType, customer_name, bookingDate, time);
+        
+        console.log('🔍 DEBUG - Booking check result:', bookingCheck);
+        
+        // If booking exists, cancel it immediately in frontend
+        if (bookingCheck.exists && bookingCheck.booking) {
+          console.log('✅ Booking found, cancelling in frontend:', bookingCheck.booking.id);
+          cancelBooking(action.agent_type || agentType, bookingCheck.booking.id);
+          
+          // Send success result to backend
+          const successResult = {
+            success: true,
+            message: `Booking cancelled successfully for ${customer_name} on ${bookingDate} at ${time}`,
+            booking_id: bookingCheck.booking.id,
+            cancelled: true
+          };
+          
+          fetch('/api/availability-tool-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tool_name: 'check_booking',
+              output: successResult,
+              agent_type: action.agent_type || agentType,
+              session_id: 'chat-session',
+              customer_name: customer_name,
+              date: bookingDate,
+              time: time
+            })
+          }).then(response => {
+            if (response.ok) {
+              return response.json();
+            } else {
+              throw new Error('Failed to send tool result to backend');
+            }
+          }).then(data => {
+            console.log('✅ Booking cancellation result sent to backend successfully');
+            
+            // Handle agent response from tool result
+            if (data.type === 'agent_response') {
+              console.log('🤖 PhonePanel: Processing booking cancellation agent response:', data.message);
+              const agentMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                text: data.message,
+                sender: 'ai',
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, agentMessage]);
+
+              // Process any new actions from the tool result response
+              if (data.actions && Array.isArray(data.actions)) {
+                console.log('🔄 FRONTEND - Processing tool result actions:', data.actions);
+                data.actions.forEach((action: any) => {
+                  processStructuredAction(action, agentType);
+                });
+              }
+            }
+          }).catch(error => {
+            console.error('❌ Error sending booking cancellation result:', error);
+          });
+        } else {
+          // Booking doesn't exist, send failure result to backend
+          const failureResult = {
+            success: false,
+            message: `No booking found for ${customer_name} on ${bookingDate} at ${time}`,
+            cancelled: false
+          };
+          
+          fetch('/api/availability-tool-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tool_name: 'check_booking',
+              output: failureResult,
+              agent_type: action.agent_type || agentType,
+              session_id: 'chat-session',
+              customer_name: customer_name,
+              date: bookingDate,
+              time: time
+            })
+          }).then(response => {
+            if (response.ok) {
+              return response.json();
+            } else {
+              throw new Error('Failed to send tool result to backend');
+            }
+          }).then(data => {
+            console.log('✅ Booking not found result sent to backend successfully');
+            
+            // Handle agent response from tool result
+            if (data.type === 'agent_response') {
+              console.log('🤖 PhonePanel: Processing booking not found agent response:', data.message);
+              const agentMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                text: data.message,
+                sender: 'ai',
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, agentMessage]);
+
+              // Process any new actions from the tool result response
+              if (data.actions && Array.isArray(data.actions)) {
+                console.log('🔄 FRONTEND - Processing tool result actions:', data.actions);
+                data.actions.forEach((action: any) => {
+                  processStructuredAction(action, agentType);
+                });
+              }
+            }
+          }).catch(error => {
+            console.error('❌ Error sending booking not found result:', error);
+          });
+        }
         break;
         
       case 'add_customer':
