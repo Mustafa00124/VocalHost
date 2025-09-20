@@ -428,8 +428,10 @@ def create_restaurant_agent() -> Agent:
         - Checking availability using check_availability(date)
         - Canceling bookings using cancel_booking(customer_name, date, time)
         
-        Always be friendly and helpful. When making reservations, ask for the customer's name, preferred date, and time.
-        When checking availability, provide specific available times.
+        IMPORTANT: When customers ask to check availability, immediately use the check_availability tool without asking additional questions. Just say "Let me check that for you, please wait a moment" and use the tool.
+        
+        When making reservations, ask for the customer's name, preferred date, and time.
+        When checking availability, provide specific available times after getting the results.
         
         Use the appropriate tools when customers request these services.""",
         tools=tools

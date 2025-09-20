@@ -299,7 +299,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         console.log('🔍 DEBUG - Available slots:', slots);
         
         // Send tool result back to backend
-        fetch('/api/tool-result', {
+        fetch('/api/availability-tool-result', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -311,9 +311,31 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           })
         }).then(response => {
           if (response.ok) {
-            console.log('✅ Tool result sent to backend successfully');
+            return response.json();
           } else {
-            console.error('❌ Failed to send tool result to backend');
+            throw new Error('Failed to send tool result to backend');
+          }
+        }).then(data => {
+          console.log('✅ Tool result sent to backend successfully');
+          
+          // Handle agent response from tool result
+          if (data.type === 'agent_response') {
+            console.log('🤖 PhonePanel: Processing tool result agent response:', data.message);
+            const agentMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              text: data.message,
+              sender: 'ai',
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, agentMessage]);
+
+            // Process any new actions from the tool result response
+            if (data.actions && Array.isArray(data.actions)) {
+              console.log('🔄 FRONTEND - Processing tool result actions:', data.actions);
+              data.actions.forEach((action: any) => {
+                processStructuredAction(action, agentType);
+              });
+            }
           }
         }).catch(error => {
           console.error('❌ Error sending tool result:', error);
