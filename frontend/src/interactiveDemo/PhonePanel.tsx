@@ -142,45 +142,65 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     console.log('📡 WebSocket URL:', `ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
     console.log('🆔 Session ID:', sessionIdRef.current);
     console.log('🌐 Current location:', window.location.href);
-    const ws = new WebSocket(`ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
-    wsRef.current = ws;
+    
+    try {
+      const ws = new WebSocket(`ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      console.log('✅ Realtime WebSocket CONNECTED successfully');
-      console.log('🔗 WebSocket readyState:', ws.readyState);
-      console.log('🌐 WebSocket URL:', ws.url);
-      console.log('📊 WebSocket protocol:', ws.protocol);
-      setIsVoiceAgentConnected(true);
-    };
+      ws.onopen = () => {
+        console.log('✅ Realtime WebSocket CONNECTED successfully');
+        console.log('🔗 WebSocket readyState:', ws.readyState);
+        console.log('🌐 WebSocket URL:', ws.url);
+        console.log('📊 WebSocket protocol:', ws.protocol);
+        setIsVoiceAgentConnected(true);
+      };
 
-    ws.onmessage = (event) => {
-      console.log('📨 WebSocket MESSAGE received from voice agent');
-      console.log('📊 Message length:', event.data.length);
-      console.log('📝 Raw message:', event.data);
-      try {
-        const data = JSON.parse(event.data);
-        console.log('✅ Parsed JSON data:', data);
-        handleRealtimeEvent(data);
-      } catch (error) {
-        console.error('❌ Error parsing WebSocket message:', error);
-        console.error('❌ Raw message that failed to parse:', event.data);
-      }
-    };
+      ws.onmessage = (event) => {
+        console.log('📨 WebSocket MESSAGE received from voice agent');
+        console.log('📊 Message length:', event.data.length);
+        console.log('📝 Raw message:', event.data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log('✅ Parsed JSON data:', data);
+          handleRealtimeEvent(data);
+        } catch (error) {
+          console.error('❌ Error parsing WebSocket message:', error);
+          console.error('❌ Raw message that failed to parse:', event.data);
+        }
+      };
 
-    ws.onclose = (event: CloseEvent) => {
-      console.log('🔌 WebSocket CONNECTION CLOSED');
-      console.log('📊 Close code:', event.code);
-      console.log('📝 Close reason:', event.reason);
-      console.log('🔍 Was clean close:', event.wasClean);
+      ws.onclose = (event: CloseEvent) => {
+        console.log('🔌 WebSocket CONNECTION CLOSED');
+        console.log('📊 Close code:', event.code);
+        console.log('📝 Close reason:', event.reason);
+        console.log('🔍 Was clean close:', event.wasClean);
+        setIsVoiceAgentConnected(false);
+        setIsVoiceAgentActive(false);
+        
+        // If it wasn't a clean close, try to reconnect after a delay
+        if (!event.wasClean && event.code !== 1000) {
+          console.log('🔄 Attempting to reconnect in 3 seconds...');
+          setTimeout(() => {
+            if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+              console.log('🔄 Reconnecting WebSocket...');
+              connectVoiceAgent();
+            }
+          }, 3000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket ERROR occurred');
+        console.error('❌ Error details:', error);
+        console.error('❌ WebSocket readyState:', ws.readyState);
+        setIsVoiceAgentConnected(false);
+        setIsVoiceAgentActive(false);
+      };
+    } catch (error) {
+      console.error('❌ Failed to create WebSocket connection:', error);
       setIsVoiceAgentConnected(false);
       setIsVoiceAgentActive(false);
-    };
-
-    ws.onerror = (error) => {
-      console.error('❌ WebSocket ERROR occurred');
-      console.error('❌ Error details:', error);
-      console.error('❌ WebSocket readyState:', ws.readyState);
-    };
+    }
   };
 
   const disconnectVoiceAgent = () => {
@@ -198,9 +218,17 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       console.log('🎤 Connecting to voice agent WebSocket...');
       connectVoiceAgent();
       
-      // Wait for connection before starting call
+      // Set up a one-time listener for when the connection opens
       if (wsRef.current) {
         wsRef.current.onopen = () => {
+          // Call the original onopen handler first (from connectVoiceAgent)
+          console.log('✅ Realtime WebSocket CONNECTED successfully');
+          console.log('🔗 WebSocket readyState:', wsRef.current?.readyState);
+          console.log('🌐 WebSocket URL:', wsRef.current?.url);
+          console.log('📊 WebSocket protocol:', wsRef.current?.protocol);
+          setIsVoiceAgentConnected(true);
+          
+          // Then start the voice call
           console.log('✅ Voice agent WebSocket connected, starting call...');
           setIsVoiceAgentActive(true);
           initializeAudioContext();
@@ -252,54 +280,85 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         // Send real audio data to backend with throttling
         let lastLogTime = 0;
         let audioChunkCount = 0;
+        let totalAudioSent = 0;
+        
         audioWorkletNode.port.onmessage = (event) => {
-          console.log('🎤 AudioWorklet message received:', {
-            hasAudioData: !!event.data.audioData,
-            format: event.data.format,
-            sampleRate: event.data.sampleRate,
-            byteLength: event.data.audioData?.byteLength || 0
-          });
+          const now = Date.now();
+          const hasAudio = !!event.data.audioData;
+          const audioSize = event.data.audioData?.byteLength || 0;
           
-          if (wsRef.current?.readyState === WebSocket.OPEN && event.data.audioData) {
-            audioChunkCount++;
-            const now = Date.now();
-            // Only log every 2 seconds to reduce clutter
-            if (now - lastLogTime > 2000) {
-              console.log('🎤 User speaking - sending audio to AI:', {
-                chunkCount: audioChunkCount,
-                size: event.data.audioData.byteLength,
-                format: event.data.format,
-                sampleRate: event.data.sampleRate,
-                wsReadyState: wsRef.current.readyState
-              });
-              lastLogTime = now;
-            }
-            
-            // Convert ArrayBuffer to Int16Array for WebSocket
-            const int16Array = new Int16Array(event.data.audioData);
-            const audioMessage = {
-              type: 'audio',
-              data: Array.from(int16Array)
-            };
-            
-            console.log('📤 Sending audio data to WebSocket:', {
-              messageType: audioMessage.type,
-              dataLength: audioMessage.data.length,
-              wsReadyState: wsRef.current.readyState
+          // Detailed logging every chunk (but throttled)
+          if (now - lastLogTime > 1000) { // Log every 1 second instead of 2
+            console.log('🎤 AUDIO WORKLET STATUS:', {
+              hasAudioData: hasAudio,
+              format: event.data.format,
+              sampleRate: event.data.sampleRate,
+              byteLength: audioSize,
+              chunkCount: audioChunkCount,
+              totalAudioSent: totalAudioSent,
+              wsReadyState: wsRef.current?.readyState,
+              wsExists: !!wsRef.current
             });
+            lastLogTime = now;
+          }
+          
+          if (wsRef.current?.readyState === WebSocket.OPEN && hasAudio && audioSize > 0) {
+            audioChunkCount++;
+            totalAudioSent += audioSize;
             
             try {
+              // Convert ArrayBuffer to Int16Array for WebSocket
+              const int16Array = new Int16Array(event.data.audioData);
+              const audioMessage = {
+                type: 'audio',
+                data: Array.from(int16Array),
+                timestamp: now,
+                chunkId: audioChunkCount
+              };
+              
+              // Log details of this specific chunk
+              console.log('📤 SENDING AUDIO CHUNK:', {
+                chunkId: audioChunkCount,
+                messageType: audioMessage.type,
+                samplesCount: audioMessage.data.length,
+                bytesCount: audioSize,
+                wsReadyState: wsRef.current.readyState,
+                timestamp: audioMessage.timestamp
+              });
+              
               wsRef.current.send(JSON.stringify(audioMessage));
-              console.log('✅ Audio data sent successfully');
+              
+              // Success log (throttled)
+              if (audioChunkCount % 10 === 0) { // Log every 10th chunk
+                console.log('✅ AUDIO CHUNK SENT SUCCESSFULLY:', {
+                  chunkId: audioChunkCount,
+                  totalChunksSent: audioChunkCount,
+                  totalBytesAudio: totalAudioSent
+                });
+              }
+              
             } catch (error) {
-              console.error('❌ Failed to send audio data:', error);
+              console.error('❌ FAILED TO SEND AUDIO CHUNK:', {
+                chunkId: audioChunkCount,
+                error: error.message,
+                wsReadyState: wsRef.current?.readyState,
+                errorType: error.constructor.name
+              });
             }
           } else {
-            console.log('⚠️ Audio data not sent - WebSocket not ready:', {
-              wsExists: !!wsRef.current,
-              wsReadyState: wsRef.current?.readyState,
-              hasAudioData: !!event.data.audioData
-            });
+            // Log why audio wasn't sent
+            if (hasAudio && audioSize > 0) {
+              console.log('⚠️ AUDIO NOT SENT - WEBSOCKET ISSUE:', {
+                wsExists: !!wsRef.current,
+                wsReadyState: wsRef.current?.readyState,
+                readyStateText: wsRef.current?.readyState === 0 ? 'CONNECTING' :
+                               wsRef.current?.readyState === 1 ? 'OPEN' :
+                               wsRef.current?.readyState === 2 ? 'CLOSING' :
+                               wsRef.current?.readyState === 3 ? 'CLOSED' : 'UNKNOWN',
+                hasAudioData: hasAudio,
+                audioSize: audioSize
+              });
+            }
           }
         };
       }
@@ -309,49 +368,118 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   };
 
   const handleRealtimeEvent = (event: any) => {
-    console.log('🎧 Realtime event:', event);
+    console.log('🎧 REALTIME EVENT RECEIVED:', {
+      type: event.type,
+      timestamp: event.timestamp || Date.now(),
+      sessionId: sessionIdRef.current
+    });
+    console.log('🎧 Full event data:', event);
     
     switch (event.type) {
+      case 'connection_established':
+        console.log('✅ CONNECTION ESTABLISHED:', event.message);
+        console.log('✅ Session ID confirmed:', event.session_id);
+        break;
+        
       case 'audio':
-        // AI is generating audio response
-        console.log('🤖 AI generating audio response:', {
-          size: event.audio?.length || 0,
-          connectionId: event.connection_id
+        // AI audio response received
+        console.log('🔊 ===== STEP 5: AI AUDIO RECEIVED FOR PLAYBACK =====');
+        console.log('🔊 AI AUDIO RESPONSE RECEIVED:', {
+          audioLength: event.audio?.length || 0,
+          sampleRate: event.sample_rate || 'unknown',
+          samples: event.samples || 'unknown',
+          timestamp: event.timestamp
         });
+        
         if (event.audio) {
+          console.log('🔊 STEP 6: PLAYING AI SPEECH TO USER...');
+          console.log('🔊 About to play AI spoken response through speakers');
           playAudioData(event.audio);
+        } else {
+          console.warn('⚠️ AI audio response received but no audio data');
         }
         break;
+        
+      case 'audio_ack':
+        console.log('✅ AUDIO ACK RECEIVED:', {
+          received: event.received,
+          bufferSize: event.buffer_size,
+          timestamp: event.timestamp
+        });
+        break;
+        
+      case 'interrupt_ack':
+        console.log('✅ INTERRUPT ACK RECEIVED:', {
+          timestamp: event.timestamp
+        });
+        break;
+        
       case 'agent_start':
         console.log('🤖 AI Agent started:', event.agent_name);
         break;
+        
       case 'agent_end':
         console.log('🤖 AI Agent ended:', event.agent_name);
         break;
+        
       case 'tool_start':
         console.log('🔧 AI using tool:', event.tool_name);
         break;
+        
       case 'tool_end':
         console.log('🔧 AI tool completed:', event.tool_name);
         handleToolResult(event.tool_name, event.output);
         break;
+        
       case 'history_updated':
         console.log('📚 History updated');
         if (event.history) {
           updateMessagesFromHistory(event.history);
         }
         break;
+        
       case 'history_added':
         console.log('📚 History item added');
         if (event.item) {
           addMessageFromHistoryItem(event.item);
         }
         break;
+        
       case 'error':
-        console.error('❌ AI Realtime error:', event.error);
+        console.error('❌ AI REALTIME ERROR:', event.error);
+        console.error('❌ Error timestamp:', event.timestamp);
         break;
+        
+      case 'message_ack':
+        console.log('✅ MESSAGE ACK RECEIVED:', {
+          receivedType: event.received_type,
+          timestamp: event.timestamp
+        });
+        break;
+        
+      case 'transcription_complete':
+        console.log('📝 ===== STEP 2.5: SPEECH TRANSCRIBED =====');
+        console.log('📝 Your speech has been converted to text by OpenAI');
+        break;
+        
+      case 'conversation_item_created':
+        console.log('📚 ===== NEW MESSAGE ADDED =====');
+        console.log('📚 New conversation item:', event.item);
+        break;
+        
+      case 'audio_done':
+        console.log('🔊 ===== AI AUDIO GENERATION COMPLETE =====');
+        console.log('🔊 AI has finished generating speech');
+        break;
+        
+      case 'response_done':
+        console.log('✅ ===== AI RESPONSE COMPLETE =====');
+        console.log('✅ AI has finished responding');
+        break;
+        
       default:
-        console.log('🔍 Unknown event type:', event.type);
+        console.log('❓ UNKNOWN EVENT TYPE:', event.type);
+        console.log('❓ Unknown event data:', event);
     }
   };
 
@@ -438,39 +566,85 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   };
 
   const playAudioData = (audioBase64: string) => {
-    if (audioContextRef.current) {
-      try {
-        // Decode base64 to ArrayBuffer
-        const binaryString = atob(audioBase64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        const int16Array = new Int16Array(bytes.buffer);
-        const sampleRate = 24000; // Realtime API uses 24kHz
-        const audioBuffer = audioContextRef.current.createBuffer(1, int16Array.length, sampleRate);
-        const channelData = audioBuffer.getChannelData(0);
-        
-        // Convert PCM16 to Float32 for Web Audio API
-        for (let i = 0; i < int16Array.length; i++) {
-          channelData[i] = int16Array[i] / 32768.0; // Convert from [-32768, 32767] to [-1, 1]
-        }
-        
-        // Play the audio
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContextRef.current.destination);
-        source.start();
-        
-        console.log('🔊 Playing AI audio response:', {
-          duration: audioBuffer.duration.toFixed(2) + 's',
-          sampleRate: audioBuffer.sampleRate,
-          samples: int16Array.length
-        });
-      } catch (error) {
-        console.error('❌ Error playing audio:', error);
+    console.log('🔊 ===== STEP 6: PROCESSING AI AUDIO FOR PLAYBACK =====');
+    console.log('🔊 PLAY AUDIO DATA CALLED:', {
+      audioContextExists: !!audioContextRef.current,
+      audioDataLength: audioBase64?.length || 0
+    });
+    
+    if (!audioContextRef.current) {
+      console.error('❌ No audio context available for playback');
+      return;
+    }
+    
+    if (!audioBase64) {
+      console.error('❌ No audio data provided for playback');
+      return;
+    }
+    
+    try {
+      console.log('🔄 STEP 6a: Decoding AI speech from base64...');
+      
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
+      
+      console.log('✅ STEP 6b: Base64 decoded successfully:', {
+        originalLength: audioBase64.length,
+        decodedBytes: bytes.length
+      });
+      
+      // Convert bytes to Int16Array (PCM16 format)
+      const int16Array = new Int16Array(bytes.buffer);
+      const sampleRate = 24000; // AI generated audio at 24kHz
+      
+      console.log('🔄 STEP 6c: Creating audio buffer for AI speech:', {
+        samples: int16Array.length,
+        sampleRate: sampleRate,
+        duration: (int16Array.length / sampleRate).toFixed(2) + 's'
+      });
+      
+      // Create audio buffer
+      const audioBuffer = audioContextRef.current.createBuffer(1, int16Array.length, sampleRate);
+      const channelData = audioBuffer.getChannelData(0);
+      
+      // Convert PCM16 to Float32 for Web Audio API
+      for (let i = 0; i < int16Array.length; i++) {
+        channelData[i] = int16Array[i] / 32768.0; // Convert from [-32768, 32767] to [-1, 1]
+      }
+      
+      console.log('🔄 STEP 6d: Audio buffer created, starting AI speech playback...');
+      
+      // Play the audio
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      
+      // Add event listeners for playback tracking
+      source.onended = () => {
+        console.log('🎉 ===== STEP 7: AI SPEECH PLAYBACK COMPLETED! =====');
+        console.log('🎉 User should have heard the AI response through speakers');
+        console.log('🔄 Ready for next user input...');
+      };
+      
+      source.start();
+      
+      console.log('🔊 ===== STEP 6e: AI SPEECH NOW PLAYING! =====');
+      console.log('🔊 AI AUDIO PLAYBACK STARTED:', {
+        duration: audioBuffer.duration.toFixed(2) + 's',
+        sampleRate: audioBuffer.sampleRate,
+        samples: int16Array.length,
+        channelsCount: audioBuffer.numberOfChannels
+      });
+      console.log('🔊 Listen to your speakers/headphones for AI response!');
+      
+    } catch (error) {
+      console.error('❌ ERROR PLAYING AUDIO:', error);
+      console.error('❌ Audio context state:', audioContextRef.current?.state);
+      console.error('❌ Audio data preview:', audioBase64?.substring(0, 100));
     }
   };
 

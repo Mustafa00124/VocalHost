@@ -185,7 +185,7 @@ async def handle_websocket_message(ws, session_id: str, message: Dict[str, Any])
     logger.info(f"📩 Received message type: {message_type} for session {session_id}")
     print(f"📩 Received message type: {message_type} for session {session_id}")
     print(f"📊 Message keys: {list(message.keys())}")
-    print(f"📝 Full message: {message}")
+    # Don't print full message as it may contain raw audio data
     
     if message_type == "audio":
         # Handle audio data - convert int16 array to bytes

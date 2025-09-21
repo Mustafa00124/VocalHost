@@ -124,7 +124,6 @@ class RealtimeVoiceAgent:
             logger.info(f"✅ RealtimeRunner created successfully")
             print(f"✅ RealtimeRunner created successfully")
             print(f"🔍 Runner type: {type(runner).__name__}")
-            print(f"🔍 Runner config: {runner.config}")
 
             # Start the REAL RealtimeRunner session
             logger.info(f"🚀 Starting RealtimeRunner.run()...")
@@ -241,7 +240,7 @@ class RealtimeVoiceAgent:
             logger.info(f"🎤 Processing audio event for connection {connection_id}: {event_data.get('type', 'unknown')}")
             print(f"🎤 Processing audio event for connection {connection_id}: {event_data.get('type', 'unknown')}")
             print(f"📊 Event data keys: {list(event_data.keys())}")
-            print(f"📝 Full event data: {event_data}")
+            # Don't print full event data as it contains raw audio data
             
             session = self._sessions.get(connection_id)
             if not session:
@@ -344,34 +343,36 @@ class RealtimeVoiceAgent:
                 event_count = 0
                 async for event in session:
                     event_count += 1
-                    try:
-                        # Process different event types from RealtimeSession
-                        event_type = getattr(event, 'type', 'unknown')
-                        
-                        logger.info(f"🎧 RealtimeSession event #{event_count} received: {event_type}")
-                        print(f"🎧 RealtimeSession event #{event_count} received: {event_type}")
+                    
+                    # Process different event types from RealtimeSession
+                    event_type = getattr(event, 'type', 'unknown')
+                    
+                    logger.info(f"🎧 RealtimeSession event #{event_count} received: {event_type}")
+                    print(f"🎧 RealtimeSession event #{event_count} received: {event_type}")
+                    # Don't print event details for audio events to avoid cluttering logs
+                    if event_type not in ["audio", "response.audio.delta"]:
                         print(f"🔍 Event type: {type(event).__name__}")
                         print(f"🔍 Event attributes: {[attr for attr in dir(event) if not attr.startswith('_')]}")
+                    
+                    if event_type == "agent_start":
+                        agent_name = getattr(event, 'agent', {}).get('name', 'Unknown Agent')
+                        logger.info(f"🤖 Agent started: {agent_name}")
+                        yield {
+                            "type": "agent_start",
+                            "agent_name": agent_name,
+                            "connection_id": connection_id
+                        }
+                    
+                    elif event_type == "agent_end":
+                        agent_name = getattr(event, 'agent', {}).get('name', 'Unknown Agent')
+                        logger.info(f"🤖 Agent ended: {agent_name}")
+                        yield {
+                            "type": "agent_end", 
+                            "agent_name": agent_name,
+                            "connection_id": connection_id
+                        }
                         
-                        if event_type == "agent_start":
-                            agent_name = getattr(event, 'agent', {}).get('name', 'Unknown Agent')
-                            logger.info(f"🤖 Agent started: {agent_name}")
-                            yield {
-                                "type": "agent_start",
-                                "agent_name": agent_name,
-                                "connection_id": connection_id
-                            }
-                        
-                        elif event_type == "agent_end":
-                            agent_name = getattr(event, 'agent', {}).get('name', 'Unknown Agent')
-                            logger.info(f"🤖 Agent ended: {agent_name}")
-                            yield {
-                                "type": "agent_end", 
-                                "agent_name": agent_name,
-                                "connection_id": connection_id
-                            }
-                        
-                        elif event_type == "tool_start":
+                    elif event_type == "tool_start":
                             tool_name = getattr(event, 'tool', {}).get('name', 'Unknown Tool')
                             logger.info(f"🔧 Tool started: {tool_name}")
                             yield {
@@ -380,7 +381,7 @@ class RealtimeVoiceAgent:
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "tool_end":
+                    elif event_type == "tool_end":
                             tool_name = getattr(event, 'tool', {}).get('name', 'Unknown Tool')
                             output = getattr(event, 'output', {})
                             logger.info(f"🔧 Tool ended: {tool_name}")
@@ -391,7 +392,7 @@ class RealtimeVoiceAgent:
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "audio":
+                    elif event_type == "audio":
                             # Stream audio data to frontend
                             audio_data = getattr(event, 'audio', b'')
                             logger.info(f"🎵 Audio streaming: {len(audio_data)} bytes")
@@ -401,21 +402,21 @@ class RealtimeVoiceAgent:
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "audio_end":
+                    elif event_type == "audio_end":
                             logger.info("🔚 Audio ended")
                             yield {
                                 "type": "audio_end",
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "audio_interrupted":
+                    elif event_type == "audio_interrupted":
                             logger.info("⏸️ Audio interrupted")
                             yield {
                                 "type": "audio_interrupted",
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "history_updated":
+                    elif event_type == "history_updated":
                             history = getattr(event, 'history', [])
                             logger.info(f"📚 History updated: {len(history)} items")
                             yield {
@@ -424,7 +425,7 @@ class RealtimeVoiceAgent:
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "history_added":
+                    elif event_type == "history_added":
                             item = getattr(event, 'item', None)
                             logger.info(f"📚 History item added")
                             yield {
@@ -433,7 +434,7 @@ class RealtimeVoiceAgent:
                                 "connection_id": connection_id
                             }
                         
-                        elif event_type == "error":
+                    elif event_type == "error":
                             error_msg = getattr(event, 'error', 'Unknown error')
                             logger.error(f"❌ RealtimeSession error: {error_msg}")
                             yield {
@@ -441,17 +442,11 @@ class RealtimeVoiceAgent:
                                 "error": str(error_msg),
                                 "connection_id": connection_id
                             }
-                        
-                        else:
-                            logger.debug(f"🔍 Unknown event type: {event_type}")
-                            
-                    except Exception as e:
-                        logger.error(f"❌ Error processing event: {str(e)}")
-                        yield {
-                            "type": "error",
-                            "error": f"Event processing error: {str(e)}",
-                            "connection_id": connection_id
-                        }
+                    
+                    else:
+                        logger.debug(f"🔍 Unknown event type: {event_type}")
+                        print(f"🔍 Unknown event type: {event_type}")
+                        # Don't print full event data as it may contain raw audio data
                         
             except Exception as context_error:
                 logger.error(f"❌ Error in RealtimeSession event loop: {str(context_error)}")
