@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Mock the OpenAI API key before importing
 with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-    from app.services.voice_agent_demo_app.demo_websocket_handler import demo_websocket_handler
-    from app.services.voice_agent_demo_app.demo_agent_sdk import demo_realtime_agent
+    from app.services.demo_app_agents.demo_websocket_handler import demo_websocket_handler
+    from app.services.demo_app_agents.text_agent import demo_agent
 
 class TestWebSocketHandler(unittest.TestCase):
     """Test WebSocket handler functionality"""
@@ -117,7 +117,7 @@ class TestWebSocketIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-            self.agent = demo_realtime_agent
+            self.agent = demo_agent
         self.handler = demo_websocket_handler
         self.connection_id = "test_integration_123"
         self.mock_websocket = Mock()

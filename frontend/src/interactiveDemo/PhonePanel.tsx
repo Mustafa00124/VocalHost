@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
-// WebSocket import removed - now using HTTP API
 import { useDemoState } from './state/demoStateProvider';
 
 interface PhonePanelProps {
@@ -11,7 +10,6 @@ interface PhonePanelProps {
   isConnected: boolean;
   isListening: boolean;
   isSpeaking: boolean;
-  callDuration: number;
   onCallStart?: () => void;
   onCallEnd?: () => void;
   onMuteToggle?: (muted: boolean) => void;
@@ -30,7 +28,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   agentType,
   isListening,
   isSpeaking,
-  callDuration,
   onCallStart,
   onCallEnd,
   onMuteToggle
@@ -49,6 +46,19 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  // Voice agent WebSocket state
+  const [isVoiceAgentConnected, setIsVoiceAgentConnected] = useState(false);
+  const [isVoiceAgentActive, setIsVoiceAgentActive] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const sessionIdRef = useRef<string>('');
+
+  // Generate session ID
+  useEffect(() => {
+    sessionIdRef.current = 'session_' + Math.random().toString(36).substr(2, 9);
+  }, []);
 
   // Initialize microphone access
   const initializeMicrophone = async () => {
@@ -112,9 +122,355 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
 
   // Send audio to backend
   const sendAudioToBackend = (audioBlob: Blob) => {
-    if (!isMuted) {
+    if (!isMuted && isVoiceAgentActive) {
+      // Voice agent is active, audio will be processed by WebSocket
+      console.log('🎤 Voice input received, processing via voice agent', audioBlob.size, 'bytes');
+    } else {
       // Voice functionality temporarily disabled - using text chat only
-      console.log('🎤 Voice input received but not processed (text chat only mode)');
+      console.log('🎤 Voice input received but not processed (text chat only mode)', audioBlob.size, 'bytes');
+    }
+  };
+
+  // Voice Agent WebSocket Functions
+  const connectVoiceAgent = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('🔌 Voice agent already connected');
+      return;
+    }
+
+    console.log('🚀 Starting WebSocket connection to voice agent...');
+    console.log('📡 WebSocket URL:', `ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
+    console.log('🆔 Session ID:', sessionIdRef.current);
+    console.log('🌐 Current location:', window.location.href);
+    const ws = new WebSocket(`ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('✅ Realtime WebSocket CONNECTED successfully');
+      console.log('🔗 WebSocket readyState:', ws.readyState);
+      console.log('🌐 WebSocket URL:', ws.url);
+      console.log('📊 WebSocket protocol:', ws.protocol);
+      setIsVoiceAgentConnected(true);
+    };
+
+    ws.onmessage = (event) => {
+      console.log('📨 WebSocket MESSAGE received from voice agent');
+      console.log('📊 Message length:', event.data.length);
+      console.log('📝 Raw message:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+        console.log('✅ Parsed JSON data:', data);
+        handleRealtimeEvent(data);
+      } catch (error) {
+        console.error('❌ Error parsing WebSocket message:', error);
+        console.error('❌ Raw message that failed to parse:', event.data);
+      }
+    };
+
+    ws.onclose = (event: CloseEvent) => {
+      console.log('🔌 WebSocket CONNECTION CLOSED');
+      console.log('📊 Close code:', event.code);
+      console.log('📝 Close reason:', event.reason);
+      console.log('🔍 Was clean close:', event.wasClean);
+      setIsVoiceAgentConnected(false);
+      setIsVoiceAgentActive(false);
+    };
+
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket ERROR occurred');
+      console.error('❌ Error details:', error);
+      console.error('❌ WebSocket readyState:', ws.readyState);
+    };
+  };
+
+  const disconnectVoiceAgent = () => {
+    if (wsRef.current) {
+      console.log('🎤 Disconnecting voice agent...');
+      wsRef.current.close();
+      wsRef.current = null;
+      setIsVoiceAgentConnected(false);
+      setIsVoiceAgentActive(false);
+    }
+  };
+
+  const startVoiceCall = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.log('🎤 Connecting to voice agent WebSocket...');
+      connectVoiceAgent();
+      
+      // Wait for connection before starting call
+      if (wsRef.current) {
+        wsRef.current.onopen = () => {
+          console.log('✅ Voice agent WebSocket connected, starting call...');
+          setIsVoiceAgentActive(true);
+          initializeAudioContext();
+        };
+      }
+    } else {
+      console.log('📞 Starting voice call - microphone active, waiting for your voice...');
+      setIsVoiceAgentActive(true);
+      
+      // Initialize audio context for real-time audio processing
+      initializeAudioContext();
+    }
+  };
+
+  const endVoiceCall = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('📞 Ending voice call - microphone disconnected');
+      // Send end call message if needed
+      wsRef.current.send(JSON.stringify({ type: 'end_call' }));
+    }
+    
+    setIsVoiceAgentActive(false);
+    
+    // Cleanup audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+  };
+
+  const initializeAudioContext = async () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: 16000
+      });
+      audioContextRef.current = audioContext;
+
+      // Load audio worklet for real-time audio processing
+      await audioContext.audioWorklet.addModule('/audio-worklet.js');
+      
+      const audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+      audioWorkletNodeRef.current = audioWorkletNode;
+
+      // Connect microphone to worklet
+      if (streamRef.current) {
+        const source = audioContext.createMediaStreamSource(streamRef.current);
+        source.connect(audioWorkletNode);
+        
+        // Send real audio data to backend with throttling
+        let lastLogTime = 0;
+        let audioChunkCount = 0;
+        audioWorkletNode.port.onmessage = (event) => {
+          console.log('🎤 AudioWorklet message received:', {
+            hasAudioData: !!event.data.audioData,
+            format: event.data.format,
+            sampleRate: event.data.sampleRate,
+            byteLength: event.data.audioData?.byteLength || 0
+          });
+          
+          if (wsRef.current?.readyState === WebSocket.OPEN && event.data.audioData) {
+            audioChunkCount++;
+            const now = Date.now();
+            // Only log every 2 seconds to reduce clutter
+            if (now - lastLogTime > 2000) {
+              console.log('🎤 User speaking - sending audio to AI:', {
+                chunkCount: audioChunkCount,
+                size: event.data.audioData.byteLength,
+                format: event.data.format,
+                sampleRate: event.data.sampleRate,
+                wsReadyState: wsRef.current.readyState
+              });
+              lastLogTime = now;
+            }
+            
+            // Convert ArrayBuffer to Int16Array for WebSocket
+            const int16Array = new Int16Array(event.data.audioData);
+            const audioMessage = {
+              type: 'audio',
+              data: Array.from(int16Array)
+            };
+            
+            console.log('📤 Sending audio data to WebSocket:', {
+              messageType: audioMessage.type,
+              dataLength: audioMessage.data.length,
+              wsReadyState: wsRef.current.readyState
+            });
+            
+            try {
+              wsRef.current.send(JSON.stringify(audioMessage));
+              console.log('✅ Audio data sent successfully');
+            } catch (error) {
+              console.error('❌ Failed to send audio data:', error);
+            }
+          } else {
+            console.log('⚠️ Audio data not sent - WebSocket not ready:', {
+              wsExists: !!wsRef.current,
+              wsReadyState: wsRef.current?.readyState,
+              hasAudioData: !!event.data.audioData
+            });
+          }
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error initializing audio context:', error);
+    }
+  };
+
+  const handleRealtimeEvent = (event: any) => {
+    console.log('🎧 Realtime event:', event);
+    
+    switch (event.type) {
+      case 'audio':
+        // AI is generating audio response
+        console.log('🤖 AI generating audio response:', {
+          size: event.audio?.length || 0,
+          connectionId: event.connection_id
+        });
+        if (event.audio) {
+          playAudioData(event.audio);
+        }
+        break;
+      case 'agent_start':
+        console.log('🤖 AI Agent started:', event.agent_name);
+        break;
+      case 'agent_end':
+        console.log('🤖 AI Agent ended:', event.agent_name);
+        break;
+      case 'tool_start':
+        console.log('🔧 AI using tool:', event.tool_name);
+        break;
+      case 'tool_end':
+        console.log('🔧 AI tool completed:', event.tool_name);
+        handleToolResult(event.tool_name, event.output);
+        break;
+      case 'history_updated':
+        console.log('📚 History updated');
+        if (event.history) {
+          updateMessagesFromHistory(event.history);
+        }
+        break;
+      case 'history_added':
+        console.log('📚 History item added');
+        if (event.item) {
+          addMessageFromHistoryItem(event.item);
+        }
+        break;
+      case 'error':
+        console.error('❌ AI Realtime error:', event.error);
+        break;
+      default:
+        console.log('🔍 Unknown event type:', event.type);
+    }
+  };
+
+  // Handle tool results
+  const handleToolResult = (toolName: string, output: any) => {
+    console.log('🔧 Processing tool result:', toolName, output);
+    
+    // Process tool results for frontend state updates
+    if (toolName === 'check_availability') {
+      // Handle availability check result
+      console.log('📅 Availability checked:', output);
+    } else if (toolName === 'check_booking') {
+      // Handle booking check result
+      console.log('📋 Booking checked:', output);
+    } else if (toolName === 'add_booking') {
+      // Handle booking addition
+      console.log('✅ Booking added:', output);
+    } else if (toolName === 'cancel_booking') {
+      // Handle booking cancellation
+      console.log('❌ Booking cancelled:', output);
+    }
+  };
+
+  // Update messages from history
+  const updateMessagesFromHistory = (history: any[]) => {
+    const newMessages: Message[] = [];
+    
+    for (const item of history) {
+      if (item.type === 'message') {
+        const role = item.role === 'user' ? 'user' : 'ai';
+        let content = '';
+        let imageUrl = '';
+        
+        if (Array.isArray(item.content)) {
+          for (const part of item.content) {
+            if (part.type === 'text' && part.text) {
+              content += part.text;
+            } else if (part.type === 'input_image' && part.image_url) {
+              imageUrl = part.image_url;
+            }
+          }
+        }
+        
+        if (content || imageUrl) {
+          newMessages.push({
+            id: item.item_id || Math.random().toString(36).substr(2, 9),
+            text: content.trim(),
+            sender: role,
+            timestamp: new Date()
+          });
+        }
+      }
+    }
+    
+    setMessages(newMessages);
+  };
+
+  // Add message from history item
+  const addMessageFromHistoryItem = (item: any) => {
+    if (item.type === 'message') {
+      const role = item.role === 'user' ? 'user' : 'ai';
+      let content = '';
+      let imageUrl = '';
+      
+      if (Array.isArray(item.content)) {
+        for (const part of item.content) {
+          if (part.type === 'text' && part.text) {
+            content += part.text;
+          } else if (part.type === 'input_image' && part.image_url) {
+            imageUrl = part.image_url;
+          }
+        }
+      }
+      
+      if (content || imageUrl) {
+        setMessages(prev => [...prev, {
+          id: item.item_id || Math.random().toString(36).substr(2, 9),
+          text: content.trim(),
+          sender: role,
+          timestamp: new Date()
+        }]);
+      }
+    }
+  };
+
+  const playAudioData = (audioBase64: string) => {
+    if (audioContextRef.current) {
+      try {
+        // Decode base64 to ArrayBuffer
+        const binaryString = atob(audioBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const int16Array = new Int16Array(bytes.buffer);
+        const sampleRate = 24000; // Realtime API uses 24kHz
+        const audioBuffer = audioContextRef.current.createBuffer(1, int16Array.length, sampleRate);
+        const channelData = audioBuffer.getChannelData(0);
+        
+        // Convert PCM16 to Float32 for Web Audio API
+        for (let i = 0; i < int16Array.length; i++) {
+          channelData[i] = int16Array[i] / 32768.0; // Convert from [-32768, 32767] to [-1, 1]
+        }
+        
+        // Play the audio
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContextRef.current.destination);
+        source.start();
+        
+        console.log('🔊 Playing AI audio response:', {
+          duration: audioBuffer.duration.toFixed(2) + 's',
+          sampleRate: audioBuffer.sampleRate,
+          samples: int16Array.length
+        });
+      } catch (error) {
+        console.error('❌ Error playing audio:', error);
+      }
     }
   };
 
@@ -130,8 +486,9 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       await initializeMicrophone();
       startRecording();
       
-      // Voice session started (WebSocket disabled)
-      console.log('📞 Voice session started');
+      // Start voice agent WebSocket connection
+      startVoiceCall();
+      console.log('📞 Voice session started with realtime agent');
     } else {
       // End call
       console.log('📞 Ending call...');
@@ -145,7 +502,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         streamRef.current = null;
       }
       
-      // Voice session cleanup (WebSocket disabled)
+      // End voice agent WebSocket connection
+      endVoiceCall();
       console.log('📞 Voice session ended');
     }
   };
@@ -593,6 +951,12 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      // Cleanup WebSocket connection
+      disconnectVoiceAgent();
+      // Cleanup audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
     };
   }, []);
 
@@ -623,11 +987,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
   }, [isSpeaking]);
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Remove the early return - we'll show the message popup within the phone
 
@@ -651,12 +1010,16 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
               </h3>
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${
+                  isCallActive ? 'bg-red-500' : 
                   isListening ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
                 <span className={`text-xs ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  {isListening ? `In Call • ${formatDuration(callDuration)}` : 'Ready'}
+                  {isCallActive ? 'Call Active • Listening for your voice' :
+                   isListening ? 'In Call • Processing audio' : 
+                   isVoiceAgentActive ? 'Voice Agent Active' :
+                   isVoiceAgentConnected ? 'Voice Agent Connected' : 'Ready'}
                 </span>
               </div>
             </div>
@@ -845,6 +1208,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
                 : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
             }`}
             animate={isCallActive ? { 
+              scale: [1, 1.05, 1],
               boxShadow: [
                 '0 0 0 0 rgba(239, 68, 68, 0.7)',
                 '0 0 0 10px rgba(239, 68, 68, 0)',
@@ -857,17 +1221,10 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
               ease: "easeInOut"
             }}
           >
-            {isCallActive ? (
-              // End call icon (X)
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              // Start call icon (phone)
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-              </svg>
-            )}
+            {/* Always show phone icon, color changes based on state */}
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+            </svg>
           </motion.button>
 
           {/* Message Button */}

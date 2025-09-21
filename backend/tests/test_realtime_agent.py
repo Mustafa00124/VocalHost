@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Mock the OpenAI API key before importing
 with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-    from app.services.voice_agent_demo_app.demo_agent_sdk import DemoRealtimeAgent
+    from app.services.demo_app_agents.text_agent import DemoAgent
 
 class TestRealtimeAgentInitialization(unittest.TestCase):
     """Test RealtimeAgent initialization and basic functionality"""
@@ -27,7 +27,7 @@ class TestRealtimeAgentInitialization(unittest.TestCase):
         """Test that RealtimeAgent initializes properly"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
             try:
-                self.agent = DemoRealtimeAgent()
+                self.agent = DemoAgent()
                 self.assertIsNotNone(self.agent)
                 self.assertIsInstance(self.agent.agents, dict)
                 print("✅ RealtimeAgent initialized successfully")
@@ -38,7 +38,7 @@ class TestRealtimeAgentInitialization(unittest.TestCase):
         """Test that all expected agents are available"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
             if not self.agent:
-                self.agent = DemoRealtimeAgent()
+                self.agent = DemoAgent()
         
         expected_agents = ['restaurant', 'ecommerce', 'dentist', 'salon']
         available_agents = self.agent.get_available_agents()
@@ -52,7 +52,7 @@ class TestRealtimeAgentInitialization(unittest.TestCase):
         """Test that agents have correct properties"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
             if not self.agent:
-                self.agent = DemoRealtimeAgent()
+                self.agent = DemoAgent()
         
         for agent_type, agent in self.agent.agents.items():
             self.assertIsNotNone(agent.name)
@@ -65,7 +65,7 @@ class TestRealtimeAgentInitialization(unittest.TestCase):
         """Test that greeting messages are generated correctly"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
             if not self.agent:
-                self.agent = DemoRealtimeAgent()
+                self.agent = DemoAgent()
         
         greetings = {}
         for agent_type in self.agent.get_available_agents():
@@ -82,7 +82,7 @@ class TestRealtimeAgentResponses(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-            self.agent = DemoRealtimeAgent()
+            self.agent = DemoAgent()
     
     def test_restaurant_agent_responses(self):
         """Test restaurant agent responses"""
@@ -156,7 +156,7 @@ class TestRealtimeAgentIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-            self.agent = DemoRealtimeAgent()
+            self.agent = DemoAgent()
     
     def test_agent_tools_loaded(self):
         """Test that tools are properly loaded in agents"""

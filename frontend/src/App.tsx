@@ -45,51 +45,122 @@ function App() {
         ? 'text-white' 
         : 'text-gray-800'}`}>
         <Navbar />
-        <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Routes>
-              <Route path="/" element={
-                <ErrorBoundary fallback={<div style={{padding: '20px', color: 'red'}}>Home page failed to load</div>}>
-                  <Home />
-                </ErrorBoundary>
-              } />
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/voice-test" element={<VoiceTest />} />
-              <Route path="/dashboard" element={
+        <Routes>
+          <Route path="/" element={
+            <ErrorBoundary fallback={<div style={{padding: '20px', color: 'red'}}>Home page failed to load</div>}>
+              <Home />
+            </ErrorBoundary>
+          } />
+          <Route path="/login" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Login />
+              </motion.div>
+            </main>
+          } />
+          <Route path="/auth/callback" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <AuthCallback />
+              </motion.div>
+            </main>
+          } />
+          <Route path="/voice-test" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <VoiceTest />
+              </motion.div>
+            </main>
+          } />
+          <Route path="/dashboard" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
-              } />
-
-              <Route path="/create" element={
+              </motion.div>
+            </main>
+          } />
+          <Route path="/create" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
                 <ProtectedRoute>
                   <CreateAssistant />
                 </ProtectedRoute>
-              } />
-              <Route path="/manage-assistants" element={
+              </motion.div>
+            </main>
+          } />
+          <Route path="/manage-assistants" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
                 <ProtectedRoute>
                   <ManageAssistants />
                 </ProtectedRoute>
-              } />
-              <Route path="/manage-assistants/edit/:id" element={
+              </motion.div>
+            </main>
+          } />
+          <Route path="/manage-assistants/edit/:id" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
                 <ProtectedRoute>
                   <EditAssistant />
                 </ProtectedRoute>
-              } />
-              <Route path="/schedule" element={
+              </motion.div>
+            </main>
+          } />
+          <Route path="/schedule" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
                 <ProtectedRoute>
                   <Schedule />
                 </ProtectedRoute>
-              } />
-              <Route path="/plans" element={<SubscriptionPlans />} />
-            </Routes>
-          </motion.div>
-        </main>
+              </motion.div>
+            </main>
+          } />
+          <Route path="/plans" element={
+            <main className="container mx-auto px-4 py-4 sm:py-8 mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <SubscriptionPlans />
+              </motion.div>
+            </main>
+          } />
+        </Routes>
       </div>
     </Router>
   );

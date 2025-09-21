@@ -48,69 +48,144 @@ const Home = () => {
   };
   
   return (
-    <div className="space-y-12">
-      {/* Hero Section */}
-      <section className="min-h-[80vh] flex items-center">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row gap-8 min-h-[80vh]">
-            {/* Left Column - Neumorphic Background with Text */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="flex-1 flex items-center justify-center p-8 lg:p-12 rounded-2xl transition-all duration-300 hover:shadow-lg"
+    <div 
+      className="w-full relative overflow-hidden"
+      style={{
+        background: 'radial-gradient(ellipse at center top, rgba(168, 85, 247, 0.95) 0%, rgba(139, 92, 246, 0.85) 20%, rgba(124, 58, 237, 0.7) 40%, rgba(59, 130, 246, 0.6) 60%, rgba(37, 99, 235, 0.5) 80%, rgba(255, 255, 255, 0) 100%)',
+        minHeight: '100vh',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Additional subtle gradient overlay - covers entire page */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at center top, rgba(147, 51, 234, 0.5) 0%, rgba(99, 102, 241, 0.4) 30%, rgba(59, 130, 246, 0.3) 60%, rgba(37, 99, 235, 0.2) 80%, transparent 100%)'
+        }}
+      ></div>
+      
+      {/* Starry Universe Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Generate 1500 stars evenly distributed */}
+        {Array.from({ length: 1500 }, (_, i) => {
+          // Create a more even distribution using grid-like positioning with randomness
+          const gridSize = Math.ceil(Math.sqrt(1500));
+          const row = Math.floor(i / gridSize);
+          const col = i % gridSize;
+          
+          // Base position on grid
+          const baseTop = (row / (gridSize - 1)) * 100;
+          const baseLeft = (col / (gridSize - 1)) * 100;
+          
+          // Add random offset for more natural distribution
+          const randomOffset = 4; // 4% random offset for tighter distribution
+          const top = Math.max(0, Math.min(100, baseTop + (Math.random() - 0.5) * randomOffset));
+          const left = Math.max(0, Math.min(100, baseLeft + (Math.random() - 0.5) * randomOffset));
+          
+          const delay = Math.random() * 16; // Extended delay range (doubled)
+          const duration = 8 + Math.random() * 12; // Much slower, more varied duration (8-20 seconds)
+          const size = Math.random() > 0.85 ? 3 : Math.random() > 0.6 ? 2 : 1; // More small stars
+          
+          return (
+            <div
+              key={i}
+              className="star"
               style={{
-                background: '#e6e7ee',
-                boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-                border: '1px solid rgba(147, 51, 234, 0.3)'
+                top: `${top}%`,
+                left: `${left}%`,
+                width: `${size}px`,
+                height: `${size}px`,
+                animationDelay: `-${delay}s`,
+                animationDuration: `${duration}s`
               }}
-              whileHover={{
-                boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+            />
+          );
+        })}
+        
+        {/* Moving shooting stars */}
+        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 animate-pulse" style={{
+          top: '18%', 
+          left: '0%', 
+          animation: 'shooting-star-1 8s linear infinite',
+          animationDelay: '0s'
+        }}></div>
+        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-pulse" style={{
+          top: '38%', 
+          left: '0%', 
+          animation: 'shooting-star-2 12s linear infinite',
+          animationDelay: '3s'
+        }}></div>
+        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-40 animate-pulse" style={{
+          top: '58%', 
+          left: '0%', 
+          animation: 'shooting-star-3 10s linear infinite',
+          animationDelay: '6s'
+        }}></div>
+      </div>
+      
+      <div className="relative z-10 space-y-12">
+        {/* Hero Section */}
+        <section className="min-h-[80vh] flex items-center relative overflow-hidden">
+          <div className="container mx-auto px-4 relative z-10">
+          <div className="flex items-center justify-center min-h-[80vh]">
+            {/* Centered Content with Glass Morphism */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="max-w-4xl text-center space-y-8 p-12 rounded-3xl backdrop-blur-lg bg-white/15 border border-white/25 shadow-2xl"
+              style={{
+                background: 'rgba(255, 255, 255, 0.12)',
+                backdropFilter: 'blur(25px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)'
               }}
             >
-              <div className="max-w-lg space-y-8">
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent"
-                >
-                  Unlock the Power of AI for Your Business
-                </motion.h1>
-                
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight drop-shadow-2xl text-white"
+              >
+                Unlock the Power of AI for Your Business
+              </motion.h1>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="w-24 h-1 rounded-full mx-auto bg-white"
+              />
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="text-lg md:text-xl leading-relaxed max-w-3xl mx-auto drop-shadow-lg text-white font-semibold"
+              >
+                Discover cutting-edge tools that transform your workflow, boost productivity, and drive innovation. From content creation to data analysis, we've got you covered.
+              </motion.p>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.8 }}
+                className="flex justify-center"
+              >
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.4 }}
-                  className="w-20 h-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full"
-                />
-                
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 }}
-                  className={`text-lg md:text-xl leading-relaxed ${
-                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                  }`}
-                >
-                  Discover cutting-edge tools that transform your workflow, boost productivity, and drive innovation. From content creation to data analysis, we've got you covered.
-                </motion.p>
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.8 }}
-                  className="pt-4"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="relative"
                 >
                   {!loading && !user ? (
                     <Link
                       to="/login"
-                      className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300"
-                      style={{ 
-                        color: '#44476A',
-                        background: '#e6e7ee',
-                        boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
-                        border: '1px solid rgba(147, 51, 234, 0.3)'
+                      className="relative px-12 py-6 text-white font-bold text-xl rounded-2xl transition-all duration-300 inline-block"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(15px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: 'inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.1)'
                       }}
                     >
                       Create Assistant
@@ -118,121 +193,69 @@ const Home = () => {
                   ) : (
                     <Link
                       to="/create"
-                      className="inline-block px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300"
-                      style={{ 
-                        color: '#44476A',
-                        background: '#e6e7ee',
-                        boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
-                        border: '1px solid rgba(147, 51, 234, 0.3)'
+                      className="relative px-12 py-6 text-white font-bold text-xl rounded-2xl transition-all duration-300 inline-block"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(15px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: 'inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.1)'
                       }}
                     >
                       Create Assistant
                     </Link>
                   )}
                 </motion.div>
-              </div>
-            </motion.div>
-            
-            {/* Right Column - Image with Neumorphic Protruded Frame */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              whileHover={{
-                boxShadow: '12px 12px 24px #b8b9be, -12px -12px 24px #ffffff',
-                scale: 1.02
-              }}
-              className="flex-1 relative min-h-[80vh] overflow-hidden rounded-2xl transition-all duration-300"
-              style={{
-                background: '#e6e7ee',
-                boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff',
-                border: '1px solid rgba(147, 51, 234, 0.3)'
-              }}
-            >
-              {/* Background Image with Inner Neumorphic Effect */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat rounded-2xl"
-                style={{
-                  backgroundImage: 'url(/hero2.jpg)',
-                  boxShadow: 'inset 2px 2px 4px rgba(0, 0, 0, 0.1), inset -2px -2px 4px rgba(147, 51, 234, 0.3)',
-                  margin: '4px',
-                  border: '1px solid rgba(147, 51, 234, 0.2)'
-                }}
-              />
-              
-              {/* Glass Morphism Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl max-w-md mx-4">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.6 }}
-                    className="text-center space-y-4"
-                  >
-                    <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow-lg" style={{ color: 'white', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-                      Vocal Host
-                    </h2>
-                    <p className="text-lg md:text-xl text-white leading-relaxed drop-shadow-lg" style={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}>
-                    Your AI assistant for customer experience <br />
-                    Never Miss a Customer Again <br />
-                    Smarter Conversations, Stronger Growth <br />
-                    More Than Messages, it’s Customer Intelligence.
-     
-                    </p>
-                    <div className="w-full h-1 bg-gradient-to-r from-transparent via-white to-transparent rounded-full"></div>
-                  </motion.div>
-                </div>
-              </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
-      </section>
+        </section>
 
       {/* Features Section */}
-      <section id="features-section" className="py-12">
+      <section id="features-section" className="relative mt-16 mb-16">
         <div className="text-center mb-10">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            className="text-3xl font-bold text-primary-600 inline-block mb-4"
+            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
           >
             Features
           </motion.h2>
-          <p className={`max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className="max-w-2xl mx-auto text-white font-semibold">
             Our AI Voice Assistant comes with powerful features designed to help your business thrive
           </p>
         </div>
         
         <div className="grid md:grid-cols-3 gap-6">
           <FeatureCard
-            icon={<CalendarIcon className="w-8 h-8" />}
+            icon={<CalendarIcon className="w-8 h-8 text-white" />}
             title="Smart Scheduling"
             description="Handle appointments and bookings with customizable time slots"
           />
           <FeatureCard
-            icon={<BuildingOfficeIcon className="w-8 h-8" />}
+            icon={<BuildingOfficeIcon className="w-8 h-8 text-white" />}
             title="Business Integration"
             description="Tailored to your business type with custom descriptions and hours"
           />
           <FeatureCard
-            icon={<ClockIcon className="w-8 h-8" />}
+            icon={<ClockIcon className="w-8 h-8 text-white" />}
             title="Time Management"
             description="Set your business hours and preferred appointment durations"
           />
           <FeatureCard
-            icon={<UserGroupIcon className="w-8 h-8" />}
+            icon={<UserGroupIcon className="w-8 h-8 text-white" />}
             title="Customer Management"
             description="Track and manage your customer information and history"
           />
           <FeatureCard
-            icon={<ChatBubbleBottomCenterTextIcon className="w-8 h-8" />}
+            icon={<ChatBubbleBottomCenterTextIcon className="w-8 h-8 text-white" />}
             title="Natural Conversations"
             description="AI-powered natural language understanding for human-like interactions"
           />
           <FeatureCard
-            icon={<ArrowTrendingUpIcon className="w-8 h-8" />}
+            icon={<ArrowTrendingUpIcon className="w-8 h-8 text-white" />}
             title="Analytics & Insights"
             description="Track performance and gain insights to improve your business"
           />
@@ -240,18 +263,18 @@ const Home = () => {
       </section>
       
       {/* Demo Section - Video Slider */}
-      <section id="demo-section" className="py-12">
+      <section id="demo-section" className="relative mt-16 mb-16">
         <div className="text-center mb-10">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            className="text-3xl font-bold text-primary-600 inline-block mb-4"
+            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
           >
             See It In Action
           </motion.h2>
-          <p className={`max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className="max-w-2xl mx-auto text-white font-semibold">
             Watch how our AI Voice Assistant seamlessly handles customer interactions across different industries
           </p>
         </div>
@@ -397,11 +420,11 @@ const Home = () => {
           >
             <div className="flex items-center justify-center mb-2">
               <span className="text-2xl mr-2">{videoData[currentVideoIndex].icon}</span>
-              <h3 className="text-xl font-semibold" style={{ color: '#44476A' }}>
+              <h3 className="text-xl font-bold text-white">
                 {videoData[currentVideoIndex].title}
               </h3>
             </div>
-            <p className={`text-sm max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className="text-sm max-w-2xl mx-auto text-white font-semibold">
               {videoData[currentVideoIndex].description}
             </p>
             
@@ -424,35 +447,35 @@ const Home = () => {
       </section>
       
       {/* Usage Section */}
-      <section id="usage-section" className="py-12">
+      <section id="usage-section" className="relative mt-16 mb-16">
         <div className="text-center mb-10">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            className="text-3xl font-bold text-primary-600 inline-block mb-4"
+            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
           >
             How It Works
           </motion.h2>
-          <p className={`max-w-2xl mx-auto ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className="max-w-2xl mx-auto text-white font-semibold">
             See how businesses are using VocalHost to streamline their operations
           </p>
         </div>
         
         <div className="grid md:grid-cols-3 gap-6">
           <UsageCard
-            icon={<PhoneIcon className="w-8 h-8" />}
+            icon={<PhoneIcon className="w-8 h-8 text-white" />}
             title="Medical Practices"
             description="Doctors use VocalHost to handle appointment scheduling, medication refill requests, and basic patient inquiries."
           />
           <UsageCard
-            icon={<ArchiveBoxIcon className="w-8 h-8" />}
+            icon={<ArchiveBoxIcon className="w-8 h-8 text-white" />}
             title="Law Firms"
             description="Attorneys use VocalHost to schedule consultations, handle client intake, and provide basic legal information."
           />
           <UsageCard
-            icon={<LightBulbIcon className="w-8 h-8" />}
+            icon={<LightBulbIcon className="w-8 h-8 text-white" />}
             title="Service Businesses"
             description="Salons, cleaning services, and consultants use VocalHost to manage their appointments and client relationships."
           />
@@ -468,6 +491,7 @@ const Home = () => {
       }>
         <FloatingCallDock />
       </ErrorBoundary>
+      </div>
     </div>
   );
 };
@@ -478,32 +502,33 @@ const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode; titl
     <motion.div
       whileHover={{ 
         scale: 1.02,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
       }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       viewport={{ once: true }}
-      className="p-6 rounded-xl transition-all duration-300"
+      className="p-6 rounded-2xl transition-all duration-300 backdrop-blur-lg"
       style={{
-        background: '#e6e7ee',
-        boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-        border: '1px solid rgba(255, 255, 255, 0.2)'
+        background: 'rgba(255, 255, 255, 0.12)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
       }}
     >
       <div 
-        className="mb-4 p-3 rounded-xl inline-block"
+        className="mb-4 p-3 rounded-xl inline-block backdrop-blur-sm"
         style={{
-          background: '#e6e7ee',
-          boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          color: '#2D4CC8'
+          background: 'rgba(255, 255, 255, 0.18)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
+          color: '#ffffff'
         }}
       >
         {icon}
       </div>
-      <h3 className="text-xl font-semibold mb-3" style={{ color: '#44476A' }}>{title}</h3>
-      <p style={{ color: '#66799e' }}>{description}</p>
+      <h3 className="text-xl font-bold mb-3 text-white">{title}</h3>
+      <p className="text-white font-semibold">{description}</p>
     </motion.div>
   );
 };
@@ -514,32 +539,33 @@ const UsageCard = ({ icon, title, description }: { icon: React.ReactNode; title:
     <motion.div
       whileHover={{ 
         scale: 1.02,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
       }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       viewport={{ once: true }}
-      className="p-6 rounded-xl transition-all duration-300"
+      className="p-6 rounded-2xl transition-all duration-300 backdrop-blur-lg"
       style={{
-        background: '#e6e7ee',
-        boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-        border: '1px solid rgba(255, 255, 255, 0.2)'
+        background: 'rgba(255, 255, 255, 0.12)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
       }}
     >
       <div 
-        className="mb-4 p-3 rounded-xl inline-block"
+        className="mb-4 p-3 rounded-xl inline-block backdrop-blur-sm"
         style={{
-          background: '#e6e7ee',
-          boxShadow: 'inset 2px 2px 5px #b8b9be, inset -3px -3px 7px #ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          color: '#2D4CC8'
+          background: 'rgba(255, 255, 255, 0.18)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
+          color: '#ffffff'
         }}
       >
         {icon}
       </div>
-      <h3 className="text-xl font-semibold mb-3" style={{ color: '#44476A' }}>{title}</h3>
-      <p style={{ color: '#66799e' }}>{description}</p>
+      <h3 className="text-xl font-bold mb-3 text-white">{title}</h3>
+      <p className="text-white font-semibold">{description}</p>
     </motion.div>
   );
 };

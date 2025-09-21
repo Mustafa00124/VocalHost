@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { AGENT_CONFIGS, getAgentConfig } from './agentConfig';
@@ -24,8 +24,6 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   
   console.log("🎯 DemoWidget state:", { isExpanded, currentAgentId, isConnected });
 
@@ -50,8 +48,6 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
     setIsConnected(false);
     setIsListening(false);
     setIsSpeaking(false);
-    setCallDuration(0);
-    setCallStartTime(null);
     
     // Notify WebSocket of agent change
     // Agent type sync removed - using HTTP API
@@ -74,13 +70,9 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
         isConnected={isConnected}
         isListening={isListening}
         isSpeaking={isSpeaking}
-        callDuration={callDuration}
-        callStartTime={callStartTime}
         setIsConnected={setIsConnected}
         setIsListening={setIsListening}
         setIsSpeaking={setIsSpeaking}
-        setCallDuration={setCallDuration}
-        setCallStartTime={setCallStartTime}
         handleAgentChange={handleAgentChange}
         handleTryDemo={handleTryDemo}
         currentAgent={currentAgent}
@@ -99,13 +91,9 @@ const DemoWidgetContent: React.FC<{
   isConnected: boolean;
   isListening: boolean;
   isSpeaking: boolean;
-  callDuration: number;
-  callStartTime: Date | null;
   setIsConnected: (connected: boolean) => void;
   setIsListening: (listening: boolean) => void;
   setIsSpeaking: (speaking: boolean) => void;
-  setCallDuration: (duration: number) => void;
-  setCallStartTime: (time: Date | null) => void;
   handleAgentChange: (agentId: string) => void;
   handleTryDemo: () => void;
   currentAgent: any;
@@ -118,13 +106,9 @@ const DemoWidgetContent: React.FC<{
   isConnected,
   isListening,
   isSpeaking,
-  callDuration,
-  callStartTime,
   setIsConnected,
   setIsListening,
   setIsSpeaking,
-  setCallDuration,
-  setCallStartTime,
   handleAgentChange,
   handleTryDemo,
   currentAgent,
@@ -137,33 +121,9 @@ const DemoWidgetContent: React.FC<{
   useAgentSync();
   console.log("🎯 Agent sync initialized");
 
-  // Simulate call behavior
-  useEffect(() => {
-    if (isListening) {
-      // Simulate AI speaking after user starts
-      const speakingTimeout = setTimeout(() => {
-        // This would need to be passed as a prop or managed differently
-        console.log("🎯 Simulating AI speaking...");
-      }, 2000);
+  // Real voice agent behavior - no simulation needed
 
-      return () => clearTimeout(speakingTimeout);
-    }
-  }, [isListening]);
-
-  // Call duration timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isListening && callStartTime) {
-      interval = setInterval(() => {
-        const now = new Date();
-        const duration = Math.floor((now.getTime() - callStartTime.getTime()) / 1000);
-        console.log("🎯 Call duration:", duration);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isListening, callStartTime]);
+  // Real voice agent - no duration timer needed
 
   return (
     <motion.div 
@@ -257,20 +217,16 @@ const DemoWidgetContent: React.FC<{
                         isConnected={isConnected}
                         isListening={isListening}
                         isSpeaking={isSpeaking}
-                        callDuration={callDuration}
                         onCallStart={() => {
                           console.log('📞 Call started');
                           setIsConnected(true);
                           setIsListening(true);
-                          setCallStartTime(new Date());
                         }}
                         onCallEnd={() => {
                           console.log('📞 Call ended');
                           setIsConnected(false);
                           setIsListening(false);
                           setIsSpeaking(false);
-                          setCallDuration(0);
-                          setCallStartTime(null);
                         }}
                         onMuteToggle={(muted) => {
                           console.log('🔇 Mute toggled:', muted);

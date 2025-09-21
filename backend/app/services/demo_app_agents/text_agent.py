@@ -39,7 +39,7 @@ class DemoAgent:
     """
 
     def __init__(self):
-        logger.info("🚀 Initializing DemoRealtimeAgent...")
+        logger.info("🚀 Initializing DemoAgent...")
 
         self.api_key = self._load_api_key()
         if not self.api_key:
@@ -65,7 +65,7 @@ class DemoAgent:
         # Serialize turns per connection to avoid overlapping responses
         self._locks: dict[str, asyncio.Lock] = {}
 
-        logger.info("🎉 Successfully initialized DemoRealtimeAgent")
+        logger.info("🎉 Successfully initialized DemoAgent")
         logger.info(f"  🏢 Restaurant agent created successfully")
 
     def _load_api_key(self) -> Optional[str]:

@@ -10,6 +10,7 @@ import json
 import logging
 from datetime import datetime
 from agents import function_tool, Agent
+from agents.realtime import RealtimeAgent
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -106,9 +107,7 @@ def cancel_booking(customer_name: str, date: str, time: str, connection_id: str 
     return result
 
 
-
 # CRM Functions
-
 @function_tool
 def add_customer(customer_name: str, email: str, phone: str, connection_id: str = None) -> dict:
     """Add a new customer to the CRM system - returns structured data for frontend"""
@@ -224,7 +223,6 @@ def cancel_salon_appointment(customer_name: str, date: str, time: str) -> str:
     return f"❌ Salon appointment cancelled for {customer_name} on {date} at {time}. Appointment ID: {appointment_id}"
 
 # Ecommerce Functions (shopping cart)
-
 @function_tool
 def add_to_cart(product_name: str, quantity: int, price: float, connection_id: str = None) -> dict:
     """Add a product to the shopping cart - returns structured data for frontend"""
@@ -417,7 +415,9 @@ def create_restaurant_agent() -> Agent:
     
     agent = Agent(
         name=config.get("name", "Restaurant Assistant"),
-        instructions=f"""You are a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
+        instructions=f"""You are VocalHost, a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
+        
+        GREETING: When a voice call starts, always begin with: "Hello! I am VocalHost, your AI restaurant assistant. How can I help you today?"
         
         BUSINESS CONTEXT:
         - We only take reservations for January 2025
@@ -448,3 +448,48 @@ def create_restaurant_agent() -> Agent:
     
     logger.info("✅ Restaurant agent created successfully")
     return agent
+
+def create_restaurant_realtime_agent() -> RealtimeAgent:
+    """Create a restaurant RealtimeAgent with all necessary tools and configuration"""
+    logger.info("🏗️ Creating restaurant RealtimeAgent...")
+    
+    config = get_business_config("restaurant")
+    tools = config.get("tools", [])
+    
+    logger.info(f"🔧 Restaurant RealtimeAgent tools: {[getattr(tool, 'name', str(tool)) for tool in tools]}")
+    
+    realtime_agent = RealtimeAgent(
+        name=config.get("name", "Restaurant Assistant"),
+        instructions=f"""You are VocalHost, a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
+        
+        GREETING: When a voice call starts, always begin with: "Hello! I am VocalHost, your AI restaurant assistant. How can I help you today?"
+        
+        BUSINESS CONTEXT:
+        - We only take reservations for January 2025
+        - Available times are Monday-Friday from 1:00 PM to 6:00 PM
+        - All dates should be formatted as "2025-01-XX" (e.g., "2025-01-08" for January 8th)
+        - Times should be in 12-hour format (e.g., "1:00 PM", "2:00 PM", etc.)
+        
+        You can help customers with:
+        - Making reservations using book_reservation(customer_name, date, time)
+        - Checking availability using check_availability(date)
+        - Canceling bookings using cancel_booking(customer_name, date, time)
+        
+        IMPORTANT - RESPONSE PATTERN:
+        - When customers ask to check availability: Say "Let me check that for you, please wait a moment" and use check_availability tool. Do NOT provide availability times in the first response.
+        - When customers ask to cancel a booking: Say "Let me check that booking for you, please wait a moment" and use cancel_booking tool. Do NOT confirm cancellation in the first response.
+        - When customers ask to make a reservation: Say "Let me book that for you, please wait a moment" and use book_reservation tool. Do NOT confirm booking in the first response.
+        
+        The system will handle the verification and provide the actual results in a second response after the tool execution.
+        
+        For reservations, extract the customer name, date (convert to 2025-01-XX format), and time from the customer's request. Do not ask for confirmation of year or month - assume all bookings are for January 2025.
+        
+        When checking availability, provide specific available times after getting the results.
+        When cancelling bookings, the system will automatically check if the booking exists and cancel it if found, or inform you if it doesn't exist.
+        
+        Use the appropriate tools when customers request these services.""",
+        tools=tools
+    )
+    
+    logger.info("✅ Restaurant RealtimeAgent created successfully")
+    return realtime_agent

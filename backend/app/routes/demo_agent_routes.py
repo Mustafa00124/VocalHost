@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import asyncio
 import logging
 import json
-from ..services.voice_agent_demo_app.demo_agent_sdk import demo_agent
+from ..services.demo_app_agents.text_agent import demo_agent
 
 # Configure logging
 logger = logging.getLogger(__name__)

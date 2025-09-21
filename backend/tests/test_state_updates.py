@@ -14,11 +14,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Mock the OpenAI API key before importing
 with patch.dict(os.environ, {'OPENAI_KEY': 'test-key'}):
-    from app.services.voice_agent_demo_app.agent_creators import (
+    from app.services.demo_app_agents.agent_creators import (
         book_reservation, check_availability, cancel_booking,
         add_customer, remove_customer, add_to_cart, remove_from_cart
     )
-    from app.services.voice_agent_demo_app.demo_websocket_handler import demo_websocket_handler
+    from app.services.demo_app_agents.demo_websocket_handler import demo_websocket_handler
 
 class TestFunctionToolsWithStateUpdates(unittest.TestCase):
     """Test that function tools properly trigger state updates via WebSocket"""
