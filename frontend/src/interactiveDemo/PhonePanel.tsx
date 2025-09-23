@@ -43,8 +43,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   // Voice-related state
   const [isMuted, setIsMuted] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   
   // Voice agent WebSocket state
@@ -79,57 +77,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
   };
 
-  // Start voice recording
-  const startRecording = async () => {
-    if (!streamRef.current) {
-      const stream = await initializeMicrophone();
-      if (!stream) return;
-    }
-
-    try {
-      const mediaRecorder = new MediaRecorder(streamRef.current!, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        sendAudioToBackend(audioBlob);
-      };
-
-      mediaRecorder.start(100); // Collect data every 100ms
-      console.log('🎤 Recording started');
-    } catch (error) {
-      console.error('🎤 Error starting recording:', error);
-    }
-  };
-
-  // Stop voice recording
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      console.log('🎤 Recording stopped');
-    }
-  };
-
-  // Send audio to backend
-  const sendAudioToBackend = (audioBlob: Blob) => {
-    if (!isMuted && isVoiceAgentActive) {
-      // Voice agent is active, audio will be processed by WebSocket
-      console.log('🎤 Voice input received, processing via voice agent', audioBlob.size, 'bytes');
-    } else {
-      // Voice functionality temporarily disabled - using text chat only
-      console.log('🎤 Voice input received but not processed (text chat only mode)', audioBlob.size, 'bytes');
-    }
-  };
 
   // Voice Agent WebSocket Functions
   const connectVoiceAgent = () => {
@@ -340,9 +287,9 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
             } catch (error) {
               console.error('❌ FAILED TO SEND AUDIO CHUNK:', {
                 chunkId: audioChunkCount,
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
                 wsReadyState: wsRef.current?.readyState,
-                errorType: error.constructor.name
+                errorType: error instanceof Error ? error.constructor.name : 'Unknown'
               });
             }
           } else {
@@ -656,11 +603,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       setIsCallActive(true);
       onCallStart?.();
       
-      // Initialize microphone and start recording
+      // Initialize microphone and start voice agent WebSocket connection
       await initializeMicrophone();
-      startRecording();
-      
-      // Start voice agent WebSocket connection
       startVoiceCall();
       console.log('📞 Voice session started with realtime agent');
     } else {
@@ -669,8 +613,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       setIsCallActive(false);
       onCallEnd?.();
       
-      // Stop recording and cleanup
-      stopRecording();
+      // Stop microphone and cleanup
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
