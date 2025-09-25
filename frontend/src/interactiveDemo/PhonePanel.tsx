@@ -44,6 +44,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const isMutedRef = useRef<boolean>(false);
   
   // Voice agent WebSocket state
   const [isVoiceAgentConnected, setIsVoiceAgentConnected] = useState(false);
@@ -86,12 +87,12 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
 
     console.log('🚀 Starting WebSocket connection to voice agent...');
-    console.log('📡 WebSocket URL:', `ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
+    console.log('📡 WebSocket URL:', `ws://localhost:5000/ws`);
     console.log('🆔 Session ID:', sessionIdRef.current);
     console.log('🌐 Current location:', window.location.href);
     
     try {
-      const ws = new WebSocket(`ws://localhost:5000/api/realtime/ws/${sessionIdRef.current}`);
+      const ws = new WebSocket(`ws://localhost:5000/ws`);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -100,6 +101,11 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         console.log('🌐 WebSocket URL:', ws.url);
         console.log('📊 WebSocket protocol:', ws.protocol);
         setIsVoiceAgentConnected(true);
+        
+        // Start the voice call when connection is established
+        console.log('✅ Voice agent WebSocket connected, starting call...');
+        setIsVoiceAgentActive(true);
+        initializeAudioContext();
       };
 
       ws.onmessage = (event) => {
@@ -124,16 +130,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         setIsVoiceAgentConnected(false);
         setIsVoiceAgentActive(false);
         
-        // If it wasn't a clean close, try to reconnect after a delay
-        if (!event.wasClean && event.code !== 1000) {
-          console.log('🔄 Attempting to reconnect in 3 seconds...');
-          setTimeout(() => {
-            if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-              console.log('🔄 Reconnecting WebSocket...');
-              connectVoiceAgent();
-            }
-          }, 3000);
-        }
+        // Don't auto-reconnect - let user manually start the call
+        console.log('🔌 WebSocket closed - user can manually reconnect by pressing call button');
       };
 
       ws.onerror = (error) => {
@@ -164,23 +162,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.log('🎤 Connecting to voice agent WebSocket...');
       connectVoiceAgent();
-      
-      // Set up a one-time listener for when the connection opens
-      if (wsRef.current) {
-        wsRef.current.onopen = () => {
-          // Call the original onopen handler first (from connectVoiceAgent)
-          console.log('✅ Realtime WebSocket CONNECTED successfully');
-          console.log('🔗 WebSocket readyState:', wsRef.current?.readyState);
-          console.log('🌐 WebSocket URL:', wsRef.current?.url);
-          console.log('📊 WebSocket protocol:', wsRef.current?.protocol);
-          setIsVoiceAgentConnected(true);
-          
-          // Then start the voice call
-          console.log('✅ Voice agent WebSocket connected, starting call...');
-          setIsVoiceAgentActive(true);
-          initializeAudioContext();
-        };
-      }
     } else {
       console.log('📞 Starting voice call - microphone active, waiting for your voice...');
       setIsVoiceAgentActive(true);
@@ -234,22 +215,44 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           const hasAudio = !!event.data.audioData;
           const audioSize = event.data.audioData?.byteLength || 0;
           
-          // Detailed logging every chunk (but throttled)
-          if (now - lastLogTime > 1000) { // Log every 1 second instead of 2
-            console.log('🎤 AUDIO WORKLET STATUS:', {
-              hasAudioData: hasAudio,
-              format: event.data.format,
-              sampleRate: event.data.sampleRate,
-              byteLength: audioSize,
-              chunkCount: audioChunkCount,
-              totalAudioSent: totalAudioSent,
-              wsReadyState: wsRef.current?.readyState,
-              wsExists: !!wsRef.current
-            });
-            lastLogTime = now;
+          // Calculate audio volume to determine if we should send
+          let shouldSendAudio = false;
+          if (hasAudio && audioSize > 0) {
+            // Convert audio data to check volume level
+            const audioData = event.data.audioData;
+            const samples = new Int16Array(audioData);
+            
+            // Calculate RMS (Root Mean Square) volume
+            let sum = 0;
+            for (let i = 0; i < samples.length; i++) {
+              sum += samples[i] * samples[i];
+            }
+            const rms = Math.sqrt(sum / samples.length);
+            const volumeThreshold = 500; // Adjust this value (0-32767)
+            
+            shouldSendAudio = rms > volumeThreshold;
+            
+            // Log volume info (throttled)
+            if (now - lastLogTime > 1000) {
+              console.log('🎤 AUDIO WORKLET STATUS:', {
+                hasAudioData: hasAudio,
+                format: event.data.format,
+                sampleRate: event.data.sampleRate,
+                byteLength: audioSize,
+                rmsVolume: rms.toFixed(2),
+                volumeThreshold: volumeThreshold,
+                shouldSend: shouldSendAudio,
+                chunkCount: audioChunkCount,
+                totalAudioSent: totalAudioSent,
+                wsReadyState: wsRef.current?.readyState,
+                wsExists: !!wsRef.current
+              });
+              lastLogTime = now;
+            }
           }
           
-          if (wsRef.current?.readyState === WebSocket.OPEN && hasAudio && audioSize > 0) {
+          // Check if we should send audio (WebSocket open, has audio, above threshold, and not muted)
+          if (wsRef.current?.readyState === WebSocket.OPEN && hasAudio && audioSize > 0 && shouldSendAudio && !isMutedRef.current) {
             audioChunkCount++;
             totalAudioSent += audioSize;
             
@@ -270,7 +273,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
                 samplesCount: audioMessage.data.length,
                 bytesCount: audioSize,
                 wsReadyState: wsRef.current.readyState,
-                timestamp: audioMessage.timestamp
+                timestamp: audioMessage.timestamp,
+                isMuted: isMutedRef.current
               });
               
               wsRef.current.send(JSON.stringify(audioMessage));
@@ -295,7 +299,13 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           } else {
             // Log why audio wasn't sent
             if (hasAudio && audioSize > 0) {
-              console.log('⚠️ AUDIO NOT SENT - WEBSOCKET ISSUE:', {
+              const reason = !wsRef.current ? 'NO_WEBSOCKET' :
+                           wsRef.current?.readyState !== WebSocket.OPEN ? 'WEBSOCKET_NOT_OPEN' :
+                           isMutedRef.current ? 'MUTED' :
+                           !shouldSendAudio ? 'BELOW_THRESHOLD' : 'UNKNOWN';
+              
+              console.log('⚠️ AUDIO NOT SENT:', {
+                reason: reason,
                 wsExists: !!wsRef.current,
                 wsReadyState: wsRef.current?.readyState,
                 readyStateText: wsRef.current?.readyState === 0 ? 'CONNECTING' :
@@ -303,7 +313,9 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
                                wsRef.current?.readyState === 2 ? 'CLOSING' :
                                wsRef.current?.readyState === 3 ? 'CLOSED' : 'UNKNOWN',
                 hasAudioData: hasAudio,
-                audioSize: audioSize
+                audioSize: audioSize,
+                isMuted: isMutedRef.current,
+                shouldSendAudio: shouldSendAudio
               });
             }
           }
@@ -323,6 +335,14 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     console.log('🎧 Full event data:', event);
     
     switch (event.type) {
+      case 'pulse':
+        console.log('💓 PULSE RECEIVED:', event.message);
+        console.log('💓 Received type:', event.received_type);
+        console.log('💓 Timestamp:', event.timestamp);
+        // Play a short beep to indicate pulse received
+        playPulseBeep();
+        break;
+        
       case 'connection_established':
         console.log('✅ CONNECTION ESTABLISHED:', event.message);
         console.log('✅ Session ID confirmed:', event.session_id);
@@ -512,6 +532,36 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
   };
 
+  const playPulseBeep = () => {
+    console.log('🔊 Playing pulse beep...');
+    try {
+      if (!audioContextRef.current) {
+        console.warn('⚠️ No audio context available for pulse beep');
+        return;
+      }
+      
+      // Create a short beep sound (440Hz for 0.1 seconds)
+      const oscillator = audioContextRef.current.createOscillator();
+      const gainNode = audioContextRef.current.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContextRef.current.destination);
+      
+      oscillator.frequency.setValueAtTime(440, audioContextRef.current.currentTime); // 440Hz
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.1, audioContextRef.current.currentTime); // Low volume
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.1);
+      
+      oscillator.start(audioContextRef.current.currentTime);
+      oscillator.stop(audioContextRef.current.currentTime + 0.1);
+      
+      console.log('✅ Pulse beep played');
+    } catch (error) {
+      console.error('❌ Error playing pulse beep:', error);
+    }
+  };
+
   const playAudioData = (audioBase64: string) => {
     console.log('🔊 ===== STEP 6: PROCESSING AI AUDIO FOR PLAYBACK =====');
     console.log('🔊 PLAY AUDIO DATA CALLED:', {
@@ -629,8 +679,10 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   const handleMuteToggle = () => {
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
+    isMutedRef.current = newMutedState; // Update ref for audio worklet
     onMuteToggle?.(newMutedState);
     console.log('🔇 Mute toggled:', newMutedState);
+    console.log('🔇 isMutedRef.current:', isMutedRef.current);
   };
 
   // Parse booking confirmation from text response

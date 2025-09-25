@@ -4,7 +4,6 @@ Minimal Realtime Voice Agent
 Using OpenAI's Realtime API with a restaurant agent
 """
 
-import asyncio
 import logging
 import os
 from dotenv import load_dotenv
@@ -34,6 +33,7 @@ class RealtimeVoiceAgent:
         self.agent = create_restaurant_realtime_agent()
 
         # Runner configuration
+        logger.info("🎤 Creating RealtimeRunner...")
         self.runner = RealtimeRunner(
             starting_agent=self.agent,
             config={
@@ -50,34 +50,16 @@ class RealtimeVoiceAgent:
         )
         logger.info("✅ RealtimeVoiceAgent ready")
 
-    async def run(self):
+    async def create_session(self):
+        """
+        Create and return a new realtime session.
+        The caller (e.g. WebSocket endpoint) is responsible for:
+          - async with session
+          - async for event in session
+        """
         session = await self.runner.run()
-        async with session:
-            print("🎤 Session started! Listening for events...")
-            async for event in session:
-                etype = event.type
-                if etype == "agent_start":
-                    print("🤖 Agent started speaking")
-                elif etype == "agent_end":
-                    print("🤖 Agent finished speaking")
-                elif etype == "tool_start":
-                    print(f"🛠️ Tool started: {event.tool.name}")
-                elif etype == "tool_end":
-                    print(f"🛠️ Tool ended: {event.tool.name}, output={event.output}")
-                elif etype == "audio":
-                    print(f"🔊 Got audio chunk ({len(event.audio)} bytes)")
-                elif etype == "audio_end":
-                    print("🔊 Audio finished")
-                elif etype == "audio_interrupted":
-                    print("⏸️ Audio interrupted")
-                elif etype == "history_added":
-                    print("📜 History item added")
-                elif etype == "history_updated":
-                    print("📜 History updated")
-                elif etype == "error":
-                    print(f"❌ Error: {event.error}")
-                else:
-                    print(f"ℹ️ Unknown event: {etype}")
+        return session
+
 
 # Global instance (so routes can import it)
-realtime_voice_agent = RealtimeVoiceAgent()
+# realtime_voice_agent = RealtimeVoiceAgent()
