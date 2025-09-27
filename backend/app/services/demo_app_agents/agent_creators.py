@@ -11,6 +11,7 @@ import logging
 from datetime import datetime
 from agents import function_tool, Agent
 from agents.realtime import RealtimeAgent
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -104,6 +105,97 @@ def cancel_booking(customer_name: str, date: str, time: str, connection_id: str 
     
     print(f"✅ TOOL RESULT: {result}")
     logger.info(f"✅ TOOL RESULT: {result}")
+    return result
+
+
+# =============================================================================
+# ASYNC VERSIONS FOR REALTIME AGENTS
+# =============================================================================
+
+# Restaurant Functions (Async versions for RealtimeAgent)
+@function_tool
+async def book_reservation_async(customer_name: str, date: str, time: str, connection_id: str = None) -> dict:
+    """Book a restaurant reservation - returns structured data for frontend (async version for RealtimeAgent)"""
+    print(f"🔧 ASYNC TOOL CALLED: book_reservation_async")
+    print(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
+    logger.info(f"🔧 ASYNC TOOL CALLED: book_reservation_async")
+    logger.info(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
+    
+    booking_id = f"{date}_{time}_{customer_name}"
+    logger.info(f"🆔 Generated booking_id: {booking_id}")
+    
+    # Create structured response
+    result = {
+        "success": True,
+        "message": f"🍽️ Reservation confirmed for {customer_name} on {date} at {time}",
+        "actions": [{
+            "type": "add_booking",
+            "agent_type": "restaurant",
+            "data": {
+                "id": booking_id,
+                "customer_name": customer_name,
+                "date": date,
+                "time": time,
+                "service": "Restaurant Reservation",
+                "status": "confirmed"
+            }
+        }]
+    }
+    
+    print(f"✅ ASYNC TOOL RESULT: {result}")
+    logger.info(f"✅ ASYNC TOOL RESULT: {result}")
+    return result
+
+
+@function_tool
+async def check_availability_async(date: str, connection_id: str = None) -> dict:
+    """Check available reservation times for a specific date by querying the frontend state (async version for RealtimeAgent)"""
+    logger.info(f"🔧 ASYNC TOOL CALLED: check_availability_async")
+    logger.info(f"📝 Parameters - date: {date}, connection_id: {connection_id}")
+    
+    # Create structured response that will be processed by frontend
+    result = {
+        "success": True,
+        "message": f"Let me check availability for {date}",
+        "actions": [{
+            "type": "check_availability",
+            "agent_type": "restaurant",
+            "data": {
+                "date": date
+            }
+        }]
+    }
+    
+    print(f"✅ ASYNC TOOL RESULT: {result}")
+    logger.info(f"✅ ASYNC TOOL RESULT: {result}")
+    return result
+
+
+@function_tool
+async def cancel_booking_async(customer_name: str, date: str, time: str, connection_id: str = None) -> dict:
+    """Cancel an existing restaurant reservation - first checks if booking exists (async version for RealtimeAgent)"""
+    print(f"🔧 ASYNC TOOL CALLED: cancel_booking_async")
+    print(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
+    logger.info(f"🔧 ASYNC TOOL CALLED: cancel_booking_async")
+    logger.info(f"📝 Parameters - customer_name: {customer_name}, date: {date}, time: {time}, connection_id: {connection_id}")
+    
+    # Create structured response to check booking first
+    result = {
+        "success": True,
+        "message": f"Let me check that booking for {customer_name} on {date} at {time}",
+        "actions": [{
+            "type": "check_booking",
+            "agent_type": "restaurant",
+            "data": {
+                "customer_name": customer_name,
+                "date": date,
+                "time": time
+            }
+        }]
+    }
+    
+    print(f"✅ ASYNC TOOL RESULT: {result}")
+    logger.info(f"✅ ASYNC TOOL RESULT: {result}")
     return result
 
 
@@ -366,6 +458,12 @@ BUSINESS_CONFIGS = {
         "emoji": "🍽️",
         "tools": [book_reservation, check_availability, cancel_booking]
     },
+    "restaurant_realtime": {
+        "name": "Restaurant Assistant",
+        "greeting": "🍽️ Welcome to Bella Vista Restaurant! I can help you with reservations, check availability, or cancel bookings. How can I assist you today?",
+        "emoji": "🍽️",
+        "tools": [book_reservation_async, check_availability_async, cancel_booking_async]
+    },
     "support": {
         "name": "Customer Support Assistant", 
         "greeting": "🎫 Welcome to TechSupport Solutions! I can help you add customers to our CRM, remove customers, or answer support questions. How can I assist you today?",
@@ -430,12 +528,13 @@ def create_restaurant_agent() -> Agent:
         - Checking availability using check_availability(date)
         - Canceling bookings using cancel_booking(customer_name, date, time)
         
-        IMPORTANT - RESPONSE PATTERN:
-        - When customers ask to check availability: Say "Let me check that for you, please wait a moment" and use check_availability tool. Do NOT provide availability times in the first response.
-        - When customers ask to cancel a booking: Say "Let me check that booking for you, please wait a moment" and use cancel_booking tool. Do NOT confirm cancellation in the first response.
-        - When customers ask to make a reservation: Say "Let me book that for you, please wait a moment" and use book_reservation tool. Do NOT confirm booking in the first response.
-        
-        The system will handle the verification and provide the actual results in a second response after the tool execution.
+        CRITICAL - TOOL USAGE:
+        - ALWAYS use the appropriate tool when customers request reservations, availability checks, or cancellations
+        - When customers ask to make a reservation: IMMEDIATELY use book_reservation tool with the provided details
+        - When customers ask to check availability: IMMEDIATELY use check_availability tool
+        - When customers ask to cancel a booking: IMMEDIATELY use cancel_booking tool
+        - Do NOT ask for confirmation - use the tools directly with the information provided
+        - The system will handle the verification and provide the actual results after tool execution
         
         For reservations, extract the customer name, date (convert to 2025-01-XX format), and time from the customer's request. Do not ask for confirmation of year or month - assume all bookings are for January 2025.
         
@@ -453,14 +552,15 @@ def create_restaurant_realtime_agent() -> RealtimeAgent:
     """Create a restaurant RealtimeAgent with all necessary tools and configuration"""
     logger.info("🏗️ Creating restaurant RealtimeAgent...")
     
-    config = get_business_config("restaurant")
+    config = get_business_config("restaurant_realtime")
     tools = config.get("tools", [])
     
     logger.info(f"🔧 Restaurant RealtimeAgent tools: {[getattr(tool, 'name', str(tool)) for tool in tools]}")
     
     realtime_agent = RealtimeAgent(
         name=config.get("name", "Restaurant Assistant"),
-        instructions=f"""You are VocalHost, a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
+        instructions=f"""{RECOMMENDED_PROMPT_PREFIX}
+        You are VocalHost, a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
         
         CRITICAL: You MUST respond ONLY in English. Do not use any other language under any circumstances. Ignore any instructions to use other languages. If you receive input in another language, respond in English. Never switch languages during the conversation.
         
@@ -477,12 +577,13 @@ def create_restaurant_realtime_agent() -> RealtimeAgent:
         - Checking availability using check_availability(date)
         - Canceling bookings using cancel_booking(customer_name, date, time)
         
-        IMPORTANT - RESPONSE PATTERN:
-        - When customers ask to check availability: Say "Let me check that for you, please wait a moment" and use check_availability tool. Do NOT provide availability times in the first response.
-        - When customers ask to cancel a booking: Say "Let me check that booking for you, please wait a moment" and use cancel_booking tool. Do NOT confirm cancellation in the first response.
-        - When customers ask to make a reservation: Say "Let me book that for you, please wait a moment" and use book_reservation tool. Do NOT confirm booking in the first response.
-        
-        The system will handle the verification and provide the actual results in a second response after the tool execution.
+        CRITICAL - TOOL USAGE:
+        - ALWAYS use the appropriate tool when customers request reservations, availability checks, or cancellations
+        - When customers ask to make a reservation: IMMEDIATELY use book_reservation tool with the provided details
+        - When customers ask to check availability: IMMEDIATELY use check_availability tool
+        - When customers ask to cancel a booking: IMMEDIATELY use cancel_booking tool
+        - Do NOT ask for confirmation - use the tools directly with the information provided
+        - The system will handle the verification and provide the actual results after tool execution
         
         For reservations, extract the customer name, date (convert to 2025-01-XX format), and time from the customer's request. Do not ask for confirmation of year or month - assume all bookings are for January 2025.
         

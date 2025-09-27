@@ -39,31 +39,34 @@ class RealtimeWebSocketManager:
         logger.info(f"🔌 Creating restaurant agent for session: {session_id}")
         agent = create_restaurant_realtime_agent()
         logger.info(f"🔌 Agent created: {agent.name}")
+        logger.info(f"🔧 Agent tools: {[getattr(tool, 'name', str(tool)) for tool in agent.tools]}")
+        logger.info(f"🔧 Agent tools count: {len(agent.tools)}")
         
         runner = RealtimeRunner(
             starting_agent=agent,
-            config={
-                "model_settings": {
-                    "model_name": "gpt-realtime",
-                    "voice": "alloy",  # Try different voice - alloy, echo, fable, onyx, nova
-                    "modalities": ["audio", "text"],
-                    "input_audio_format": "pcm16",
-                    "output_audio_format": "pcm16",
-                    "input_audio_transcription": {
-                        "model": "gpt-4o-transcribe",
-                    },
-                    "language": "en",
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "create_response": True,  # CRITICAL: Enable response generation
-                        "threshold": 0.3,  # Lower threshold for better detection
-                        "silence_duration_ms": 1000,  # Longer silence duration
-                        "prefix_padding_ms": 500,  # More padding
-                        "eagerness": "medium"  # Add eagerness setting
-                    },
-                    "eagerness": "high"
-                }
-            }
+            # config={
+            #     "model_settings": {
+            #         "model_name": "gpt-realtime",
+            #         "voice": "alloy",
+            #         "modalities": ["audio", "text"],
+            #         "input_audio_format": "pcm16",
+            #         "output_audio_format": "pcm16",
+            #         "input_audio_transcription": {
+            #             "model": "gpt-4o-transcribe",
+            #             "language": "en"
+            #         },
+            #         "language": "en",
+            #         "turn_detection": {
+            #             "type": "server_vad",
+            #             "create_response": True,  # CRITICAL: Enable response generation
+            #             "threshold": 0.3,  # Lower threshold for better detection
+            #             "silence_duration_ms": 1000,  # Longer silence duration
+            #             "prefix_padding_ms": 500,  # More padding
+            #             "eagerness": "medium"  # Add eagerness setting
+            #         },
+            #         "eagerness": "high",
+            #     }
+            # }
         )
         logger.info(f"🔌 RealtimeRunner created for session: {session_id}")
         
@@ -135,17 +138,18 @@ class RealtimeWebSocketManager:
             logger.info(f"🔌 Session and websocket found for: {session_id}")
 
             async for event in session:
-                logger.info(f"#### Received event from session: {event.type}")
-                if event.type == "audio":
+                logger.info(f"🔌 EVENT RECEIVED: {event.type}")
+                if event.type == "tool_start":
+                    logger.info(f"🔧 TOOL START: {event.tool.name if hasattr(event, 'tool') else 'Unknown tool'}")
+                elif event.type == "tool_end":
+                    logger.info(f"🔧 TOOL END: {event.tool.name if hasattr(event, 'tool') else 'Unknown tool'}")
+                    logger.info(f"🔧 TOOL OUTPUT: {event.output if hasattr(event, 'output') else 'No output'}")
+                elif event.type == "audio":
                     logger.info(f"🔌 AUDIO EVENT RECEIVED! Audio data length: {len(event.audio.data) if hasattr(event, 'audio') and event.audio else 'No audio data'}")
                 elif event.type == "agent_start":
                     logger.info(f"🔌 AGENT STARTED: {event.agent.name}")
                 elif event.type == "agent_end":
                     logger.info(f"🔌 AGENT ENDED: {event.agent.name}")
-                elif event.type == "tool_start":
-                    logger.info(f"🔌 TOOL STARTED: {event.tool.name}")
-                elif event.type == "tool_end":
-                    logger.info(f"🔌 TOOL ENDED: {event.tool.name}")
                 elif event.type == "error":
                     logger.error(f"🔌 ERROR EVENT: {event.error}")
                 
