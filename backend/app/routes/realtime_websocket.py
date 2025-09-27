@@ -45,17 +45,23 @@ class RealtimeWebSocketManager:
             config={
                 "model_settings": {
                     "model_name": "gpt-realtime",
-                    "voice": "ash",
-                    "modalities": ["audio"],
+                    "voice": "alloy",  # Try different voice - alloy, echo, fable, onyx, nova
+                    "modalities": ["audio", "text"],
                     "input_audio_format": "pcm16",
                     "output_audio_format": "pcm16",
-                    "input_audio_transcription": {"model": "gpt-4o-mini-transcribe"},
+                    "input_audio_transcription": {
+                        "model": "gpt-4o-transcribe",
+                    },
+                    "language": "en",
                     "turn_detection": {
                         "type": "server_vad",
-                        "threshold": 0.5,
-                        "silence_duration_ms": 500,
-                        "prefix_padding_ms": 300
+                        "create_response": True,  # CRITICAL: Enable response generation
+                        "threshold": 0.3,  # Lower threshold for better detection
+                        "silence_duration_ms": 1000,  # Longer silence duration
+                        "prefix_padding_ms": 500,  # More padding
+                        "eagerness": "medium"  # Add eagerness setting
                     },
+                    "eagerness": "high"
                 }
             }
         )
@@ -75,17 +81,6 @@ class RealtimeWebSocketManager:
         logger.info(f"🔌 Starting event processing task for session: {session_id}")
         asyncio.create_task(self._process_events(session_id))
         
-        # Send initial greeting to trigger the agent
-        logger.info(f"🔌 Sending initial greeting to trigger agent for session: {session_id}")
-        try:
-            await session.send_message({
-                "type": "message",
-                "role": "user", 
-                "content": [{"type": "input_text", "text": "Hello"}]
-            })
-            logger.info(f"🔌 Initial greeting sent to session: {session_id}")
-        except Exception as e:
-            logger.error(f"🔌 Failed to send initial greeting: {e}")
 
     async def disconnect(self, session_id: str):
         if session_id in self.session_contexts:
@@ -247,6 +242,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             elif message["type"] == "interrupt":
                 await manager.interrupt(session_id)
                 logger.info(f"🔌 WebSocket sent interrupt")
+            elif message["type"] == "message":
+                # Handle text messages to RealtimeRunner
+                logger.info(f"🔌 Received text message: {message.get('content', [{}])[0].get('text', '')}")
+                await manager.send_user_message(session_id, message)
+                logger.info(f"🔌 Text message sent to RealtimeRunner")
 
     except WebSocketDisconnect:
         logger.info(f"🔌 WebSocket disconnected: {session_id}")

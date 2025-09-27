@@ -297,10 +297,11 @@ const VoiceTest: React.FC = () => {
       // Get microphone stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 8000,  // OpenAI expects 8kHz
+          sampleRate: 24000,  // OpenAI Realtime API expects 24kHz
           channelCount: 1,    // Mono
           echoCancellation: true,
-          noiseSuppression: true
+          noiseSuppression: true,
+          autoGainControl: true
         } 
       });
       
@@ -310,7 +311,8 @@ const VoiceTest: React.FC = () => {
       // Create AudioContext
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-          sampleRate: 8000
+          sampleRate: 24000,
+          latencyHint: 'interactive'
         });
       }
       
@@ -320,7 +322,7 @@ const VoiceTest: React.FC = () => {
       const source = audioContextRef.current.createMediaStreamSource(stream);
       
       // Create ScriptProcessorNode for PCM16 capture
-      const bufferSize = 4096; // 4096 samples = ~512ms at 8kHz
+      const bufferSize = 6144; // 6144 samples = ~256ms at 24kHz
       const processor = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
       
       console.log('🎛️ Frontend: ScriptProcessor created, buffer size:', bufferSize);
@@ -404,7 +406,7 @@ const VoiceTest: React.FC = () => {
         console.log('🎤 Frontend: Requesting microphone permission...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
-            sampleRate: 8000,
+            sampleRate: 24000,
             channelCount: 1,
             echoCancellation: true,
             noiseSuppression: true

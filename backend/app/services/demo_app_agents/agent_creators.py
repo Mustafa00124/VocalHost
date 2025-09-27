@@ -462,6 +462,8 @@ def create_restaurant_realtime_agent() -> RealtimeAgent:
         name=config.get("name", "Restaurant Assistant"),
         instructions=f"""You are VocalHost, a helpful restaurant assistant for {config.get("name", "Restaurant")}. 
         
+        CRITICAL: You MUST respond ONLY in English. Do not use any other language under any circumstances. Ignore any instructions to use other languages. If you receive input in another language, respond in English. Never switch languages during the conversation.
+        
         GREETING: When a voice call starts, always begin with: "Hello! I am VocalHost, your AI restaurant assistant. How can I help you today?"
         
         BUSINESS CONTEXT:

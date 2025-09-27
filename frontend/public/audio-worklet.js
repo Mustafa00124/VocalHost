@@ -3,10 +3,10 @@ class AudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     // Use larger buffer size to reduce flooding
-    this.bufferSize = 4096; // 256ms at 16kHz
+    this.bufferSize = 6144; // 256ms at 24kHz
     this.buffer = new Float32Array(this.bufferSize);
     this.bufferIndex = 0;
-    this.sampleRate = 16000; // Realtime API expects 16kHz
+    this.sampleRate = 24000; // Realtime API expects 24kHz
   }
 
   process(inputs, outputs, parameters) {

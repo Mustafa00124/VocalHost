@@ -53,6 +53,13 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sessionIdRef = useRef<string>('');
+  
+  // Realtime text input state (separate from existing chat)
+  const [realtimeTextInput, setRealtimeTextInput] = useState('');
+  
+  // Audio buffering for AI responses
+  const audioBufferRef = useRef<Int16Array[]>([]);
+  const isPlayingRef = useRef<boolean>(false);
 
   // Generate session ID
   useEffect(() => {
@@ -66,7 +73,9 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 16000
+          autoGainControl: true,
+          sampleRate: 24000,
+          channelCount: 1
         } 
       });
       streamRef.current = stream;
@@ -180,6 +189,10 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     
     setIsVoiceAgentActive(false);
     
+    // Cleanup audio buffer and playback state
+    audioBufferRef.current = [];
+    isPlayingRef.current = false;
+    
     // Cleanup audio context
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -187,139 +200,66 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
   };
 
+  // Send text message to RealtimeRunner (separate from existing chat)
+  const sendRealtimeTextMessage = () => {
+    if (!realtimeTextInput.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    console.log('📤 Sending text to RealtimeRunner:', realtimeTextInput);
+    
+    // Send text message to RealtimeRunner
+    const textMessage = {
+      type: 'message',
+      role: 'user',
+      content: [{"type": "input_text", "text": realtimeTextInput}]
+    };
+    
+    wsRef.current.send(JSON.stringify(textMessage));
+    setRealtimeTextInput(''); // Clear input after sending
+  };
+
   const initializeAudioContext = async () => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 16000
+        sampleRate: 24000,
+        latencyHint: 'interactive'
       });
       audioContextRef.current = audioContext;
 
-      // Load audio worklet for real-time audio processing
-      await audioContext.audioWorklet.addModule('/audio-worklet.js');
-      
-      const audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
-      audioWorkletNodeRef.current = audioWorkletNode;
-
-      // Connect microphone to worklet
+      // Create media stream source (matching official example)
       if (streamRef.current) {
         const source = audioContext.createMediaStreamSource(streamRef.current);
-        source.connect(audioWorkletNode);
         
-        // Send real audio data to backend with throttling
-        let lastLogTime = 0;
-        let audioChunkCount = 0;
-        let totalAudioSent = 0;
+        // Create script processor for real-time processing (matching official example)
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        source.connect(processor);
+        processor.connect(audioContext.destination);
         
-        audioWorkletNode.port.onmessage = (event) => {
-          const now = Date.now();
-          const hasAudio = !!event.data.audioData;
-          const audioSize = event.data.audioData?.byteLength || 0;
-          
-          // Calculate audio volume to determine if we should send
-          let shouldSendAudio = false;
-          if (hasAudio && audioSize > 0) {
-            // Convert audio data to check volume level
-            const audioData = event.data.audioData;
-            const samples = new Int16Array(audioData);
-            
-            // Calculate RMS (Root Mean Square) volume
-            let sum = 0;
-            for (let i = 0; i < samples.length; i++) {
-              sum += samples[i] * samples[i];
+        console.log('✅ Script processor created and connected');
+        
+        // Handle audio data from script processor (matching official example)
+        
+        processor.onaudioprocess = (event) => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isMutedRef.current) {
+            const inputBuffer = event.inputBuffer.getChannelData(0);
+            const int16Buffer = new Int16Array(inputBuffer.length);
+
+            // Convert float32 to int16 (matching official example)
+            for (let i = 0; i < inputBuffer.length; i++) {
+              int16Buffer[i] = Math.max(-32768, Math.min(32767, inputBuffer[i] * 32768));
             }
-            const rms = Math.sqrt(sum / samples.length);
-            const volumeThreshold = 500; // Adjust this value (0-32767)
-            
-            shouldSendAudio = rms > volumeThreshold;
-            
-            // Log volume info (throttled)
-            if (now - lastLogTime > 1000) {
-              console.log('🎤 AUDIO WORKLET STATUS:', {
-                hasAudioData: hasAudio,
-                format: event.data.format,
-                sampleRate: event.data.sampleRate,
-                byteLength: audioSize,
-                rmsVolume: rms.toFixed(2),
-                volumeThreshold: volumeThreshold,
-                shouldSend: shouldSendAudio,
-                chunkCount: audioChunkCount,
-                totalAudioSent: totalAudioSent,
-                wsReadyState: wsRef.current?.readyState,
-                wsExists: !!wsRef.current
-              });
-              lastLogTime = now;
-            }
-          }
-          
-          // Check if we should send audio (WebSocket open, has audio, above threshold, and not muted)
-          if (wsRef.current?.readyState === WebSocket.OPEN && hasAudio && audioSize > 0 && shouldSendAudio && !isMutedRef.current) {
-            audioChunkCount++;
-            totalAudioSent += audioSize;
-            
-            try {
-              // Convert ArrayBuffer to Int16Array for WebSocket
-              const int16Array = new Int16Array(event.data.audioData);
-              const audioMessage = {
-                type: 'audio',
-                data: Array.from(int16Array),
-                timestamp: now,
-                chunkId: audioChunkCount
-              };
-              
-              // Log details of this specific chunk
-              console.log('📤 SENDING AUDIO CHUNK:', {
-                chunkId: audioChunkCount,
-                messageType: audioMessage.type,
-                samplesCount: audioMessage.data.length,
-                bytesCount: audioSize,
-                wsReadyState: wsRef.current.readyState,
-                timestamp: audioMessage.timestamp,
-                isMuted: isMutedRef.current
-              });
-              
-              wsRef.current.send(JSON.stringify(audioMessage));
-              
-              // Success log (throttled)
-              if (audioChunkCount % 10 === 0) { // Log every 10th chunk
-                console.log('✅ AUDIO CHUNK SENT SUCCESSFULLY:', {
-                  chunkId: audioChunkCount,
-                  totalChunksSent: audioChunkCount,
-                  totalBytesAudio: totalAudioSent
-                });
-              }
-              
-            } catch (error) {
-              console.error('❌ FAILED TO SEND AUDIO CHUNK:', {
-                chunkId: audioChunkCount,
-                error: error instanceof Error ? error.message : String(error),
-                wsReadyState: wsRef.current?.readyState,
-                errorType: error instanceof Error ? error.constructor.name : 'Unknown'
-              });
-            }
-          } else {
-            // Log why audio wasn't sent
-            if (hasAudio && audioSize > 0) {
-              const reason = !wsRef.current ? 'NO_WEBSOCKET' :
-                           wsRef.current?.readyState !== WebSocket.OPEN ? 'WEBSOCKET_NOT_OPEN' :
-                           isMutedRef.current ? 'MUTED' :
-                           !shouldSendAudio ? 'BELOW_THRESHOLD' : 'UNKNOWN';
-              
-              console.log('⚠️ AUDIO NOT SENT:', {
-                reason: reason,
-                wsExists: !!wsRef.current,
-                wsReadyState: wsRef.current?.readyState,
-                readyStateText: wsRef.current?.readyState === 0 ? 'CONNECTING' :
-                               wsRef.current?.readyState === 1 ? 'OPEN' :
-                               wsRef.current?.readyState === 2 ? 'CLOSING' :
-                               wsRef.current?.readyState === 3 ? 'CLOSED' : 'UNKNOWN',
-                hasAudioData: hasAudio,
-                audioSize: audioSize,
-                isMuted: isMutedRef.current,
-                shouldSendAudio: shouldSendAudio
-              });
-            }
+
+            console.log('📤 Sending audio data to backend:', int16Buffer.length, 'samples');
+            wsRef.current.send(JSON.stringify({
+              type: 'audio',
+              data: Array.from(int16Buffer)
+            }));
           }
         };
+        
+        // Store processor reference (using any type since we switched from AudioWorklet to ScriptProcessor)
+        (audioWorkletNodeRef as any).current = processor;
       }
     } catch (error) {
       console.error('❌ Error initializing audio context:', error);
@@ -395,6 +335,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         
       case 'tool_end':
         console.log('🔧 AI tool completed:', event.tool_name);
+        console.log('🔧 Tool output:', event.output);
         handleToolResult(event.tool_name, event.output);
         break;
         
@@ -454,19 +395,29 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   const handleToolResult = (toolName: string, output: any) => {
     console.log('🔧 Processing tool result:', toolName, output);
     
-    // Process tool results for frontend state updates
-    if (toolName === 'check_availability') {
-      // Handle availability check result
-      console.log('📅 Availability checked:', output);
-    } else if (toolName === 'check_booking') {
-      // Handle booking check result
-      console.log('📋 Booking checked:', output);
-    } else if (toolName === 'add_booking') {
-      // Handle booking addition
-      console.log('✅ Booking added:', output);
-    } else if (toolName === 'cancel_booking') {
-      // Handle booking cancellation
-      console.log('❌ Booking cancelled:', output);
+    try {
+      // Parse tool output to extract structured actions
+      let parsedOutput;
+      if (typeof output === 'string') {
+        parsedOutput = JSON.parse(output);
+      } else {
+        parsedOutput = output;
+      }
+      
+      console.log('🔧 Parsed tool output:', parsedOutput);
+      
+      // Extract actions from tool result (same as text agent)
+      if (parsedOutput.actions && Array.isArray(parsedOutput.actions)) {
+        console.log('🔄 VOICE AGENT - Processing structured actions from tool result:', parsedOutput.actions);
+        parsedOutput.actions.forEach((action: any) => {
+          processStructuredAction(action, agentType);
+        });
+      } else {
+        console.log('⚠️ No structured actions found in tool result');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error processing tool result:', error);
     }
   };
 
@@ -563,10 +514,12 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   };
 
   const playAudioData = (audioBase64: string) => {
-    console.log('🔊 ===== STEP 6: PROCESSING AI AUDIO FOR PLAYBACK =====');
+    console.log('🔊 ===== STEP 6: BUFFERING AI AUDIO CHUNK =====');
     console.log('🔊 PLAY AUDIO DATA CALLED:', {
       audioContextExists: !!audioContextRef.current,
-      audioDataLength: audioBase64?.length || 0
+      audioDataLength: audioBase64?.length || 0,
+      isCurrentlyPlaying: isPlayingRef.current,
+      bufferLength: audioBufferRef.current.length
     });
     
     if (!audioContextRef.current) {
@@ -580,8 +533,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
     
     try {
-      console.log('🔄 STEP 6a: Decoding AI speech from base64...');
-      
       // Decode base64 to ArrayBuffer
       const binaryString = atob(audioBase64);
       const bytes = new Uint8Array(binaryString.length);
@@ -589,59 +540,88 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         bytes[i] = binaryString.charCodeAt(i);
       }
       
-      console.log('✅ STEP 6b: Base64 decoded successfully:', {
-        originalLength: audioBase64.length,
-        decodedBytes: bytes.length
-      });
-      
       // Convert bytes to Int16Array (PCM16 format)
       const int16Array = new Int16Array(bytes.buffer);
-      const sampleRate = 24000; // AI generated audio at 24kHz
       
-      console.log('🔄 STEP 6c: Creating audio buffer for AI speech:', {
+      console.log('🔄 STEP 6a: Adding audio chunk to buffer:', {
         samples: int16Array.length,
-        sampleRate: sampleRate,
-        duration: (int16Array.length / sampleRate).toFixed(2) + 's'
+        bufferLength: audioBufferRef.current.length
       });
       
+      // Add to buffer instead of playing immediately
+      audioBufferRef.current.push(int16Array);
+      
+      // If not currently playing, start playback
+      if (!isPlayingRef.current) {
+        playBufferedAudio();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error buffering AI audio:', error);
+    }
+  };
+
+  const playBufferedAudio = async () => {
+    if (isPlayingRef.current || audioBufferRef.current.length === 0) {
+      return;
+    }
+    
+    isPlayingRef.current = true;
+    console.log('🔊 ===== STEP 7: PLAYING BUFFERED AUDIO =====');
+    console.log('🔊 Starting buffered audio playback:', {
+      chunks: audioBufferRef.current.length,
+      totalSamples: audioBufferRef.current.reduce((sum, chunk) => sum + chunk.length, 0)
+    });
+    
+    try {
+      // Combine all buffered chunks
+      const totalSamples = audioBufferRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
+      const combinedAudio = new Int16Array(totalSamples);
+      let offset = 0;
+      
+      for (const chunk of audioBufferRef.current) {
+        combinedAudio.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      // Clear buffer
+      audioBufferRef.current = [];
+      
       // Create audio buffer
-      const audioBuffer = audioContextRef.current.createBuffer(1, int16Array.length, sampleRate);
+      const sampleRate = 24000;
+      const audioBuffer = audioContextRef.current!.createBuffer(1, combinedAudio.length, sampleRate);
       const channelData = audioBuffer.getChannelData(0);
       
       // Convert PCM16 to Float32 for Web Audio API
-      for (let i = 0; i < int16Array.length; i++) {
-        channelData[i] = int16Array[i] / 32768.0; // Convert from [-32768, 32767] to [-1, 1]
+      for (let i = 0; i < combinedAudio.length; i++) {
+        channelData[i] = combinedAudio[i] / 32768.0;
       }
       
-      console.log('🔄 STEP 6d: Audio buffer created, starting AI speech playback...');
+      console.log('🔄 STEP 7a: Playing combined audio buffer:', {
+        samples: combinedAudio.length,
+        duration: (combinedAudio.length / sampleRate).toFixed(2) + 's'
+      });
       
-      // Play the audio
-      const source = audioContextRef.current.createBufferSource();
+      // Play the combined audio
+      const source = audioContextRef.current!.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
+      source.connect(audioContextRef.current!.destination);
       
-      // Add event listeners for playback tracking
       source.onended = () => {
-        console.log('🎉 ===== STEP 7: AI SPEECH PLAYBACK COMPLETED! =====');
-        console.log('🎉 User should have heard the AI response through speakers');
-        console.log('🔄 Ready for next user input...');
+        console.log('✅ STEP 7b: Audio playback completed');
+        isPlayingRef.current = false;
+        // Check if there are more chunks to play
+        if (audioBufferRef.current.length > 0) {
+          setTimeout(() => playBufferedAudio(), 50); // Small delay to prevent overlap
+        }
       };
       
       source.start();
-      
-      console.log('🔊 ===== STEP 6e: AI SPEECH NOW PLAYING! =====');
-      console.log('🔊 AI AUDIO PLAYBACK STARTED:', {
-        duration: audioBuffer.duration.toFixed(2) + 's',
-        sampleRate: audioBuffer.sampleRate,
-        samples: int16Array.length,
-        channelsCount: audioBuffer.numberOfChannels
-      });
-      console.log('🔊 Listen to your speakers/headphones for AI response!');
+      console.log('✅ STEP 7b: Combined audio playback started');
       
     } catch (error) {
-      console.error('❌ ERROR PLAYING AUDIO:', error);
-      console.error('❌ Audio context state:', audioContextRef.current?.state);
-      console.error('❌ Audio data preview:', audioBase64?.substring(0, 100));
+      console.error('❌ Error playing buffered audio:', error);
+      isPlayingRef.current = false;
     }
   };
 
@@ -1335,6 +1315,37 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Realtime Text Input (for testing) */}
+        {isVoiceAgentConnected && (
+          <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={realtimeTextInput}
+                onChange={(e) => setRealtimeTextInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendRealtimeTextMessage()}
+                placeholder="Type to test RealtimeRunner..."
+                className={`flex-1 px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  theme === 'dark'
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+              />
+              <button
+                onClick={sendRealtimeTextMessage}
+                disabled={!realtimeTextInput.trim()}
+                className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                  realtimeTextInput.trim()
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Send
+              </button>
             </div>
           </div>
         )}
