@@ -1,13 +1,35 @@
 # app/routes/auth_routes.py
 
-from flask import Blueprint, request, redirect, session, jsonify
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+from typing import Optional
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-from app.models import db, User
-import os, secrets, requests, stripe
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from app.models import User
+from app.database import get_db
+import os, secrets, stripe
+import json
 
-auth_bp = Blueprint("auth", __name__)
+auth_router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# Pydantic models
+class UserResponse(BaseModel):
+    id: int
+    name: Optional[str]
+    email: Optional[str]
+    stripe_customer_id: Optional[str]
+
+class AuthResponse(BaseModel):
+    message: str
+    user: UserResponse
+
+class LoginResponse(BaseModel):
+    message: str
+    user: UserResponse
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -21,11 +43,16 @@ SCOPES = [
 # Set Stripe API key
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-@auth_bp.route("/google/login")
-def google_login():
-    frontend_cb = request.args.get("callback")
-    if frontend_cb:
-        session["frontend_callback"] = frontend_cb
+@auth_router.get("/google/login")
+async def google_login(
+    request: Request,
+    response: Response,
+    callback: Optional[str] = Query(None)
+):
+    """Initiate Google OAuth login"""
+    # Store callback in response cookies for later use
+    if callback:
+        response.set_cookie("frontend_callback", callback, httponly=True, samesite="lax")
 
     flow = Flow.from_client_config(
         client_config={
@@ -42,7 +69,7 @@ def google_login():
     flow.redirect_uri = GOOGLE_REDIRECT_URI
 
     state = secrets.token_urlsafe(16)
-    session["oauth_state"] = state
+    response.set_cookie("oauth_state", state, httponly=True, samesite="lax")
 
     auth_url, _ = flow.authorization_url(
         access_type="offline",
@@ -50,16 +77,25 @@ def google_login():
         prompt="consent",
         state=state,
     )
-    return redirect(auth_url)
+    return RedirectResponse(url=auth_url)
 
 
-@auth_bp.route("/google/callback")
-def google_callback():
+@auth_router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    response: Response,
+    state: Optional[str] = Query(None),
+    code: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Handle Google OAuth callback"""
     # 1) Validate state
-    state = request.args.get("state")
-    if not state or state != session.get("oauth_state"):
-        return jsonify({"error": "Invalid OAuth state"}), 401
-    session.pop("oauth_state", None)
+    stored_state = request.cookies.get("oauth_state")
+    if not state or not stored_state or state != stored_state:
+        raise HTTPException(status_code=401, detail="Invalid OAuth state")
+    
+    # Clear the state cookie
+    response.delete_cookie("oauth_state")
 
     # 2) Exchange code for tokens
     flow = Flow.from_client_config(
@@ -76,19 +112,27 @@ def google_callback():
         state=state,
     )
     flow.redirect_uri = GOOGLE_REDIRECT_URI
-    flow.fetch_token(authorization_response=request.url)
+    
+    # Get the full URL for token exchange
+    full_url = str(request.url)
+    flow.fetch_token(authorization_response=full_url)
     creds = flow.credentials
 
     # 3) Fetch user info
-    service   = build("oauth2", "v2", credentials=creds)
-    profile   = service.userinfo().get().execute()
+    service = build("oauth2", "v2", credentials=creds)
+    profile = service.userinfo().get().execute()
     google_id = profile["id"]
-    email     = profile.get("email")
-    name      = profile.get("name")
+    email = profile.get("email")
+    name = profile.get("name")
 
     # 4) Upsert User in DB
-    user = User.query.filter_by(google_id=google_id).first() \
-           or (email and User.query.filter_by(email=email).first())
+    stmt = select(User).where(User.google_id == google_id)
+    user = db.execute(stmt).scalar_one_or_none()
+    
+    if not user and email:
+        stmt = select(User).where(User.email == email)
+        user = db.execute(stmt).scalar_one_or_none()
+    
     if not user:
         user = User(
             google_id=google_id,
@@ -97,12 +141,13 @@ def google_callback():
             google_token=creds.token,
             google_refresh_token=creds.refresh_token,
         )
-        db.session.add(user)
+        db.add(user)
+        db.flush()  # Get the ID
     else:
-        user.google_token         = creds.token
+        user.google_token = creds.token
         user.google_refresh_token = creds.refresh_token or user.google_refresh_token
-        user.name                 = name or user.name
-        user.email                = email or user.email
+        user.name = name or user.name
+        user.email = email or user.email
 
     # 4.5) Create Stripe customer if not exists
     if not user.stripe_customer_id and stripe.api_key:
@@ -117,56 +162,60 @@ def google_callback():
             print(f"Failed to create Stripe customer: {e}")
             # Continue without Stripe customer - user can still use the app
 
-    db.session.commit()
+    db.commit()
 
-    # 5) Remember “who” in the Flask session
-    session["user_id"] = user.id
+    # 5) Set user session cookie
+    response.set_cookie("user_id", str(user.id), httponly=True, samesite="lax")
 
-    payload = {"id": user.id, "name": user.name, "email": user.email}
+    payload = UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        stripe_customer_id=user.stripe_customer_id
+    )
 
     # 6) Redirect to front-end callback if given
-    cb = session.pop("frontend_callback", None)
-    if cb:
-        sep = "&" if "?" in cb else "?"
-        return redirect(f"{cb}{sep}login=success")
+    frontend_callback = request.cookies.get("frontend_callback")
+    if frontend_callback:
+        response.delete_cookie("frontend_callback")
+        sep = "&" if "?" in frontend_callback else "?"
+        return RedirectResponse(url=f"{frontend_callback}{sep}login=success")
 
     # 7) Otherwise just return JSON
-    return jsonify({"message": "Successfully authenticated", "user": payload})
+    return AuthResponse(message="Successfully authenticated", user=payload)
 
 
-@auth_bp.route("/user/me")
-def get_current_user():
+@auth_router.get("/user/me", response_model=UserResponse)
+async def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Returns the currently-authenticated user, based on the Flask session.
+    Returns the currently-authenticated user, based on the session cookie.
     Your front-end can call this right after the OAuth redirect to grab
-    the user’s ID/name/email and store it in localStorage.
+    the user's ID/name/email and store it in localStorage.
     """
-    user_id = session.get("user_id")
+    user_id = request.cookies.get("user_id")
     if not user_id:
-        return jsonify({"error": "Not authenticated"}), 401
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = User.query.get(user_id)
+    stmt = select(User).where(User.id == int(user_id))
+    user = db.execute(stmt).scalar_one_or_none()
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        raise HTTPException(status_code=404, detail="User not found")
 
-    return jsonify({
-        "user": {
-            "id":    user.id,
-            "name":  user.name,
-            "email": user.email,
-            "stripe_customer_id": user.stripe_customer_id
-        }
-    })
+    return UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        stripe_customer_id=user.stripe_customer_id
+    )
 
 
-@auth_bp.route("/logout", methods=["POST"])
-def logout():
+@auth_router.post("/logout")
+async def logout(response: Response):
     """
     Logout the current user and clear the session.
     """
-    user_id = session.get("user_id")
-    if user_id:
-        session.clear()
-        return jsonify({"message": "Successfully logged out"})
-    else:
-        return jsonify({"error": "Not logged in"}), 401
+    response.delete_cookie("user_id")
+    return {"message": "Successfully logged out"}

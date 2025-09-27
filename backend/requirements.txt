@@ -1,6 +1,13 @@
+# Flask (keeping for reference, can be removed later)
 Flask==3.1.1
 flask_sock==0.7.0
 flask_sqlalchemy==3.1.1
+
+# FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+httpx==0.25.2
 google_api_python_client==2.169.0
 google_auth_oauthlib==1.2.1
 langchain==0.3.25

@@ -1,33 +1,40 @@
-from flask import Blueprint, request, jsonify
-from werkzeug.utils import secure_filename
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from typing import List
+import os
 from app.services.rag import extract_and_index
 
-rag_bp = Blueprint("rag", __name__, url_prefix="/api/rag")
+rag_router = APIRouter(prefix="/api/rag", tags=["rag"])
 
-@rag_bp.route("/index_files", methods=["POST"])
-def index_files():
+@rag_router.post("/index_files")
+async def index_files(
+    assistant_id: int = Form(...),
+    user_id: int = Form(...),
+    files: List[UploadFile] = File(...)
+):
     """
     form-data:
       - assistant_id (int)
       - user_id      (int)
       - files        (one or more: pdf, txt, etc.)
     """
-    # 1) Parse and validate IDs
-    try:
-        assistant_id = int(request.form["assistant_id"])
-        user_id      = int(request.form["user_id"])
-    except (KeyError, ValueError):
-        return jsonify(error="assistant_id & user_id required"), 400
+    # 1) Validate IDs
+    if not assistant_id or not user_id:
+        raise HTTPException(status_code=400, detail="assistant_id & user_id required")
 
     # 2) Gather uploaded docs
-    if "files" not in request.files:
-        return jsonify(error="No files uploaded"), 400
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
 
-    docs: list[str|bytes] = []
-    for f in request.files.getlist("files"):
-        filename = secure_filename(f.filename or "")
+    docs: List[str | bytes] = []
+    for file in files:
+        if not file.filename:
+            continue
+            
+        # Secure filename (basic implementation)
+        filename = os.path.basename(file.filename)
         ext = filename.rsplit(".", 1)[-1].lower()
-        raw = f.read()
+        raw = await file.read()
+        
         if ext == "pdf":
             docs.append(raw)  # bytes → PDF extractor will be invoked
         elif ext in ("txt", "md", "text"):
@@ -37,8 +44,8 @@ def index_files():
             continue
 
     if not docs:
-        return jsonify(error="No supported files uploaded"), 400
+        raise HTTPException(status_code=400, detail="No supported files uploaded")
 
     # 3) Extract, chunk, embed & index
     result = extract_and_index(assistant_id, user_id, docs)
-    return jsonify(result), 200
+    return result

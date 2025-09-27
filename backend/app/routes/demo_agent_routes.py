@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+from typing import Optional, List, Any
 import asyncio
 import logging
 import json
@@ -7,23 +9,46 @@ from ..services.demo_app_agents.text_agent import demo_agent
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Create blueprint
-demo_agent_bp = Blueprint('demo_agent', __name__)
+# Create router
+demo_agent_router = APIRouter(prefix="/api", tags=["demo"])
 
-@demo_agent_bp.route("/chat", methods=["POST"])
-def chat_endpoint():
+# Pydantic models for request/response
+class ChatRequest(BaseModel):
+    message: str
+    agentType: str = "restaurant"
+    sessionId: str = "default"
+    connectionId: Optional[str] = None
+
+class ToolResultRequest(BaseModel):
+    tool_name: str
+    output: dict
+    agent_type: str = "restaurant"
+    session_id: str = "chat-session"
+    connection_id: Optional[str] = None
+    date: str = ""
+    customer_name: Optional[str] = None
+    time: Optional[str] = None
+
+class AgentResponse(BaseModel):
+    type: str
+    message: str
+    agent_type: str
+    session_id: str
+    actions: List[Any] = []
+
+@demo_agent_router.post("/chat", response_model=AgentResponse)
+async def chat_endpoint(request: ChatRequest):
     try:
         # Log incoming request
-        data = request.get_json(force=True)
         print("🚀 CHAT ENDPOINT - Incoming request")
-        print(f"📥 Frontend payload: {data}")
+        print(f"📥 Frontend payload: {request.dict()}")
         logger.info("🚀 CHAT ENDPOINT - Incoming request")
-        logger.info(f"📥 Frontend payload: {data}")
+        logger.info(f"📥 Frontend payload: {request.dict()}")
         
-        user_message = data.get("message", "")
-        agent_type = data.get("agentType", "restaurant")
-        session_id = data.get("sessionId", "default")
-        connection_id = data.get("connectionId")  # optional, for lock management
+        user_message = request.message
+        agent_type = request.agentType
+        session_id = request.sessionId
+        connection_id = request.connectionId
 
         print(f"📝 Parsed data - Message: '{user_message}', Agent: {agent_type}, Session: {session_id}, Connection: {connection_id}")
         logger.info(f"📝 Parsed data - Message: '{user_message}', Agent: {agent_type}, Session: {session_id}, Connection: {connection_id}")
@@ -31,21 +56,16 @@ def chat_endpoint():
         if not user_message.strip():
             print("❌ Empty message received")
             logger.warning("❌ Empty message received")
-            return jsonify({
-                "type": "error",
-                "message": "Empty message"
-            }), 400
+            raise HTTPException(status_code=400, detail="Empty message")
 
-        # Run the async agent call in sync Flask context
+        # Run the async agent call
         print("🤖 Calling demo_agent.process_message...")
         logger.info("🤖 Calling demo_agent.process_message...")
-        agent_response = asyncio.run(
-            demo_agent.process_message(
-                message=user_message,
-                agent_type=agent_type,
-                session_id=session_id,
-                connection_id=connection_id
-            )
+        agent_response = await demo_agent.process_message(
+            message=user_message,
+            agent_type=agent_type,
+            session_id=session_id,
+            connection_id=connection_id
         )
 
         # Extract message and actions from agent response
@@ -62,32 +82,31 @@ def chat_endpoint():
         logger.info(f"📤 Backend response: {message[:100]}...")
         logger.info(f"📦 Actions: {actions}")
 
-        response_data = {
-            "type": "agent_response",
-            "message": message,
-            "agent_type": agent_type,
-            "session_id": session_id,
-            "actions": actions
-        }
+        response_data = AgentResponse(
+            type="agent_response",
+            message=message,
+            agent_type=agent_type,
+            session_id=session_id,
+            actions=actions
+        )
         
-        logger.info(f"📦 Final response payload: {response_data}")
-        return jsonify(response_data)
+        logger.info(f"📦 Final response payload: {response_data.dict()}")
+        return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ CHAT ENDPOINT ERROR: {str(e)}", exc_info=True)
-        return jsonify({
-            "type": "error",
-            "message": f"Error: {str(e)}"
-        }), 500
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
-@demo_agent_bp.route("/greeting", methods=["GET"])
-def greeting_endpoint():
+@demo_agent_router.get("/greeting")
+async def greeting_endpoint(agentType: str = Query("restaurant", alias="agentType")):
     try:
-        agent_type = request.args.get("agentType", "restaurant")
+        agent_type = agentType
         logger.info(f"🎯 GREETING ENDPOINT - Agent type: {agent_type}")
         
-        greeting = asyncio.run(demo_agent.get_greeting(agent_type))
+        greeting = await demo_agent.get_greeting(agent_type)
         
         response_data = {
             "type": "greeting",
@@ -96,38 +115,31 @@ def greeting_endpoint():
         }
         
         logger.info(f"📤 Greeting response: {response_data}")
-        return jsonify(response_data)
+        return response_data
         
     except Exception as e:
         logger.error(f"❌ GREETING ENDPOINT ERROR: {str(e)}", exc_info=True)
-        return jsonify({
-            "type": "error",
-            "message": f"Error: {str(e)}"
-        }), 500
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
-@demo_agent_bp.route("/availability-tool-result", methods=["POST"])
-def availability_tool_result_endpoint():
+@demo_agent_router.post("/availability-tool-result", response_model=AgentResponse)
+async def availability_tool_result_endpoint(request: ToolResultRequest):
     """Endpoint for frontend to send availability tool results back to backend"""
     try:
-        data = request.get_json(force=True)
         print("🔧 AVAILABILITY TOOL RESULT ENDPOINT - Incoming request")
-        print(f"📥 Tool result payload: {data}")
+        print(f"📥 Tool result payload: {request.dict()}")
         logger.info("🔧 AVAILABILITY TOOL RESULT ENDPOINT - Incoming request")
-        logger.info(f"📥 Tool result payload: {data}")
+        logger.info(f"📥 Tool result payload: {request.dict()}")
         
-        tool_name = data.get("tool_name")
-        output = data.get("output")
-        agent_type = data.get("agent_type", "restaurant")
-        session_id = data.get("session_id", "chat-session")
-        connection_id = data.get("connection_id")
-        date = data.get("date", "")
+        tool_name = request.tool_name
+        output = request.output
+        agent_type = request.agent_type
+        session_id = request.session_id
+        connection_id = request.connection_id
+        date = request.date
         
         if not tool_name or not output:
-            return jsonify({
-                "type": "error",
-                "message": "tool_name and output are required"
-            }), 400
+            raise HTTPException(status_code=400, detail="tool_name and output are required")
         
         print(f"📤 Tool result received: {tool_name} for {agent_type} on {date}")
         print(f"📊 Output: {output}")
@@ -143,9 +155,9 @@ def availability_tool_result_endpoint():
             
             if success and cancelled:
                 # Booking was successfully cancelled in frontend
-                customer_name = data.get('customer_name', '')
-                booking_date = data.get('date', '')
-                booking_time = data.get('time', '')
+                customer_name = request.customer_name or ''
+                booking_date = request.date
+                booking_time = request.time or ''
                 
                 print(f"✅ Booking successfully cancelled in frontend for {customer_name} on {booking_date} at {booking_time}")
                 logger.info(f"✅ Booking successfully cancelled in frontend for {customer_name} on {booking_date} at {booking_time}")
@@ -154,9 +166,9 @@ def availability_tool_result_endpoint():
                 tool_result_message = f"Booking cancellation successful. {message} Please confirm to the customer that their reservation has been cancelled."
             else:
                 # Booking not found or cancellation failed
-                customer_name = data.get('customer_name', '')
-                booking_date = data.get('date', '')
-                booking_time = data.get('time', '')
+                customer_name = request.customer_name or ''
+                booking_date = request.date
+                booking_time = request.time or ''
                 
                 print(f"❌ Booking not found or cancellation failed for {customer_name} on {booking_date} at {booking_time}")
                 logger.info(f"❌ Booking not found or cancellation failed for {customer_name} on {booking_date} at {booking_time}")
@@ -171,13 +183,11 @@ def availability_tool_result_endpoint():
         logger.info(f"🔄 Feeding tool result back to agent: {tool_result_message}")
         
         # Process the tool result through the agent to get a natural language response
-        agent_response = asyncio.run(
-            demo_agent.process_message(
-                message=tool_result_message,
-                agent_type=agent_type,
-                session_id=session_id,
-                connection_id=connection_id
-            )
+        agent_response = await demo_agent.process_message(
+            message=tool_result_message,
+            agent_type=agent_type,
+            session_id=session_id,
+            connection_id=connection_id
         )
         
         # Extract message and actions from agent response
@@ -194,20 +204,19 @@ def availability_tool_result_endpoint():
         logger.info(f"📤 Agent response to tool result: {message[:100]}...")
         logger.info(f"📦 New actions from tool result: {actions}")
         
-        response_data = {
-            "type": "agent_response",
-            "message": message,
-            "agent_type": agent_type,
-            "session_id": session_id,
-            "actions": actions
-        }
+        response_data = AgentResponse(
+            type="agent_response",
+            message=message,
+            agent_type=agent_type,
+            session_id=session_id,
+            actions=actions
+        )
         
-        logger.info(f"📦 Final tool result response payload: {response_data}")
-        return jsonify(response_data)
+        logger.info(f"📦 Final tool result response payload: {response_data.dict()}")
+        return response_data
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ AVAILABILITY TOOL RESULT ENDPOINT ERROR: {str(e)}", exc_info=True)
-        return jsonify({
-            "type": "error",
-            "message": f"Error: {str(e)}"
-        }), 500
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

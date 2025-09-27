@@ -87,12 +87,12 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
 
     console.log('🚀 Starting WebSocket connection to voice agent...');
-    console.log('📡 WebSocket URL:', `ws://localhost:5000/ws`);
+    console.log('📡 WebSocket URL:', `ws://localhost:5000/ws/${sessionIdRef.current}`);
     console.log('🆔 Session ID:', sessionIdRef.current);
     console.log('🌐 Current location:', window.location.href);
     
     try {
-      const ws = new WebSocket(`ws://localhost:5000/ws`);
+      const ws = new WebSocket(`ws://localhost:5000/ws/${sessionIdRef.current}`);
       wsRef.current = ws;
 
       ws.onopen = () => {

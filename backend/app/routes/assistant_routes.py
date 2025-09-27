@@ -1,112 +1,168 @@
 # app/routes/assistant_routes.py
 
-from flask import Blueprint, request, jsonify
-from werkzeug.utils import secure_filename
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form, Query
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import select, and_
 import json
+import os
 from datetime import datetime, timedelta
 
-from app.models import db, User, Assistant, Booking, AssistantAnalytics
+from app.models import User, Assistant, Booking, AssistantAnalytics
+from app.database import get_db
 from app.services.twillio_helper import buy_twilio_number
 from app.services.rag import extract_and_index
 from app.services.booking import generate_time_slots, load_booked_slots
-from flask import session
 
-assistant_bp = Blueprint("assistant", __name__)
+assistant_router = APIRouter(prefix="/api", tags=["assistant"])
 
-@assistant_bp.route("/register", methods=["POST"])
-def register_business():
+# Pydantic models
+class AssistantCreate(BaseModel):
+    business_name: str
+    receptionist_name: str
+    start_time: str
+    end_time: str
+    booking_duration_minutes: int
+    phone_number: str
+    available_days: Dict[str, bool]
+    voice_type: str
+    business_description: Optional[str] = ""
+
+class AssistantUpdate(BaseModel):
+    business_name: Optional[str] = None
+    receptionist_name: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    booking_duration_minutes: Optional[int] = None
+    available_days: Optional[Dict[str, bool]] = None
+    voice_type: Optional[str] = None
+
+class AssistantResponse(BaseModel):
+    id: int
+    name: str
+    business_name: str
+    description: Optional[str]
+    start_time: str
+    end_time: str
+    booking_duration_minutes: int
+    available_days: Dict[str, bool]
+    twilio_number: Optional[str]
+    voice_type: str
+    status: str
+    features: List[str]
+    created_at: Optional[datetime]
+    is_accessible: bool
+
+class BookingResponse(BaseModel):
+    id: int
+    date: str
+    time: str
+    customer_name: str
+    details: Optional[str]
+    created_at: datetime
+
+class SlotsResponse(BaseModel):
+    date: str
+    day: str
+    slots: List[str]
+    business_hours: str
+    slot_duration: int
+
+@assistant_router.post("/register")
+async def register_business(
+    user_id: int = Form(...),
+    business_name: str = Form(...),
+    receptionist_name: str = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    booking_duration_minutes: int = Form(...),
+    phone_number: str = Form(...),
+    available_days: str = Form(...),  # JSON string
+    voice_type: str = Form(...),
+    business_description: str = Form(""),
+    twilio_number: Optional[str] = Form(None),
+    files: List[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
     """
-    Accepts multipart/form-data with form fields:
-      - user_id (int)
-      - business_name
-      - receptionist_name
-      - start_time (HH:MM)
-      - end_time   (HH:MM)
-      - booking_duration_minutes (int)
-      - phone_number
-      - available_days (JSON object)
-      - voice_type ("male"|"female")
-    Optionally:
-      - files (one or more PDFs or text files) to index into RAG immediately.
+    Register a new business assistant.
+    Accepts multipart/form-data with form fields and optional files for RAG indexing.
     """
-    # 1) Parse and validate core form fields
-    form = request.form
-    try:
-        user_id = int(form["user_id"])
-    except (KeyError, ValueError):
-        return jsonify(error="Must include a valid user_id"), 400
-
-    required = [
-        "business_name",
-        "receptionist_name",
-        "start_time",
-        "end_time",
-        "booking_duration_minutes",
-        "phone_number",
-        "available_days",
-        "voice_type"
-    ]
-    if not all(field in form for field in required):
-        return jsonify(error="Missing one or more required fields"), 400
-
-    user = User.query.get(user_id)
+    # 1) Validate user exists
+    stmt = select(User).where(User.id == user_id)
+    user = db.execute(stmt).scalar_one_or_none()
     if not user:
-        return jsonify(error="No such user"), 404
+        raise HTTPException(status_code=404, detail="No such user")
     
     # Check subscription status and limits
     if not user.can_create_agent():
         if user.subscription_status != "active":
-            return jsonify(error="Active subscription required to create agents"), 403
+            raise HTTPException(status_code=403, detail="Active subscription required to create agents")
         else:
-            return jsonify(error=f"Agent limit reached. Your {user.plan} plan allows {user.max_agents} agent(s)"), 403
+            raise HTTPException(status_code=403, detail=f"Agent limit reached. Your {user.plan} plan allows {user.max_agents} agent(s)")
     
     # 2) Acquire or purchase Twilio number
-    twilio_number = form.get("twilio_number")
     if not twilio_number:
         try:
             twilio_number = buy_twilio_number(country="US")
         except Exception as e:
-            return jsonify(error="Twilio error", details=str(e)), 500
+            raise HTTPException(status_code=500, detail=f"Twilio error: {str(e)}")
 
-    # 3) Create the Assistant record
+    # 3) Parse available days
+    try:
+        available_days_dict = json.loads(available_days)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid available_days JSON format")
+
+    # 4) Create the Assistant record
     assistant = Assistant(
-        name=form["receptionist_name"],
-        business_name=form["business_name"],
-        description=form.get("business_description", ""),
-        start_time=form["start_time"],
-        end_time=form["end_time"],
-        booking_duration_minutes=int(form["booking_duration_minutes"]),
-        available_days=json.dumps(json.loads(form["available_days"])),
+        name=receptionist_name,
+        business_name=business_name,
+        description=business_description,
+        start_time=start_time,
+        end_time=end_time,
+        booking_duration_minutes=booking_duration_minutes,
+        available_days=json.dumps(available_days_dict),
         twilio_number=twilio_number,
-        voice_type=form["voice_type"],
+        voice_type=voice_type,
         user_id=user.id
     )
-    db.session.add(assistant)
-    db.session.commit()
+    db.add(assistant)
+    db.flush()  # Get the ID
 
+    # 5) Process uploaded files for RAG indexing
     indexed = 0
-    if "files" in request.files:
+    if files:
         docs = []
-        for f in request.files.getlist("files"):
-            filename = secure_filename(f.filename or "")
+        for file in files:
+            if not file.filename:
+                continue
+                
+            filename = os.path.basename(file.filename)
             ext = filename.rsplit(".", 1)[-1].lower()
-            data = f.read()
+            data = await file.read()
+            
             if ext == "pdf":
                 docs.append(data)
             elif ext in ("txt", "md", "text"):
                 docs.append(data.decode("utf-8", errors="ignore"))
+        
         if docs:
             result = extract_and_index(assistant.id, user.id, docs)
             indexed = result.get("indexed", 0)
 
-    # 5) Return response
-    resp = {
-        "message":       f"Assistant created. Forward calls to {twilio_number}.",
-        "assistant_id":  assistant.id,
+    db.commit()
+
+    # 6) Return response
+    return {
+        "message": f"Assistant created. Forward calls to {twilio_number}.",
+        "assistant_id": assistant.id,
         "twilio_number": twilio_number,
         "indexed_chunks": indexed
     }
-    return jsonify(resp), 201
 
 
 @assistant_bp.route("/slots/<int:assistant_id>", methods=["GET"])
