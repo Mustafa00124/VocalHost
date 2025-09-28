@@ -183,7 +183,7 @@ class RealtimeWebSocketManager:
             base_event["tool"] = event.tool.name
         elif event.type == "tool_end":
             base_event["tool"] = event.tool.name
-            base_event["output"] = str(event.output)
+            base_event["output"] = event.output
         elif event.type == "audio":
             base_event["audio"] = base64.b64encode(event.audio.data).decode("utf-8")
         elif event.type == "audio_interrupted":
