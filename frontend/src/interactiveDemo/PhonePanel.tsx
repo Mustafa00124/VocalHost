@@ -1172,58 +1172,40 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           </div>
         </div>
 
-        {/* Messages Area - Always present spacer, conditional content */}
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-          {messages.length > 0 && (
-            <React.Fragment>
-              <AnimatePresence>
-                {messages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-xs px-3 py-2 rounded-2xl ${
-                      message.sender === 'user'
-                        ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white'
-                        : theme === 'dark'
-                        ? 'bg-gray-700 text-gray-100'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}>
-                      <p className="text-sm">{message.text}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.sender === 'user' ? 'text-white/70' : 'text-gray-500'
-                      }`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-
-              {currentAiMessage && (
+        {/* Phone Call Area - Clean interface with circular avatar */}
+        <div className="flex-1 flex items-center justify-center">
+          {/* Circular Avatar with VH initials */}
+          <div className="relative">
+            {/* Subtle animated boundary rings when connected */}
+            {isVoiceAgentActive && (
+              <>
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start"
-                >
-                  <div className={`max-w-xs px-3 py-2 rounded-2xl ${
-                    theme === 'dark' ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-900'
-                  }`}>
-                    <p className="text-sm">{currentAiMessage}</p>
-                    <div className="flex items-center space-x-1 mt-1">
-                      <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" />
-                      <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                      <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </React.Fragment>
-          )}
+                  className="absolute inset-0 rounded-full border border-blue-400 opacity-60"
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0, 0.6] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+                <motion.div
+                  className="absolute inset-0 rounded-full border border-blue-400 opacity-40"
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
+                />
+                <motion.div
+                  className="absolute inset-0 rounded-full border border-blue-400 opacity-20"
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0, 0.2] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
+                />
+              </>
+            )}
+            
+            {/* Main avatar circle */}
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg ${
+              isVoiceAgentActive 
+                ? 'bg-gradient-to-r from-green-500 to-blue-500' 
+                : 'bg-gradient-to-r from-gray-500 to-gray-600'
+            }`}>
+              VH
+            </div>
+          </div>
         </div>
 
         {/* Message Popup Interface */}
@@ -1316,6 +1298,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
           </div>
         )}
 
+
+        {/* Message Popup Interface - Commented out for now, may need for debugging later */}
         {/* Realtime Text Input (for testing) */}
         {/* Realtime Text Input - Commented out for now, may need for debugging later */}
         {/* {isVoiceAgentConnected && (

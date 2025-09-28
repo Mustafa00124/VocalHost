@@ -41,7 +41,7 @@ const Calendar: React.FC<CalendarProps> = ({ agentType }) => {
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
         date: date.getDate(),
-        fullDate: date.toISOString().split('T')[0],
+        fullDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
         isInJanuary2025,
         isWeekend: date.getDay() === 0 || date.getDay() === 6
       };
