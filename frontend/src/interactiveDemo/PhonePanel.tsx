@@ -120,14 +120,12 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       ws.onmessage = (event) => {
         console.log('📨 WebSocket MESSAGE received from voice agent');
         console.log('📊 Message length:', event.data.length);
-        console.log('📝 Raw message:', event.data);
         try {
           const data = JSON.parse(event.data);
           console.log('✅ Parsed JSON data:', data);
           handleRealtimeEvent(data);
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error);
-          console.error('❌ Raw message that failed to parse:', event.data);
         }
       };
 
@@ -756,7 +754,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     
     switch (action.type) {
       case 'add_booking':
-        console.log('🔍 DEBUG - Raw action data:', action.data);
         
         // Convert time format - handle both 24-hour and 12-hour formats
         const convertTimeFormat = (time: string) => {
@@ -1320,7 +1317,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         )}
 
         {/* Realtime Text Input (for testing) */}
-        {isVoiceAgentConnected && (
+        {/* Realtime Text Input - Commented out for now, may need for debugging later */}
+        {/* {isVoiceAgentConnected && (
           <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
               <input
@@ -1348,7 +1346,7 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
               </button>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Call Control Buttons */}
         <div className="flex items-center justify-center space-x-4 py-4 flex-shrink-0">
