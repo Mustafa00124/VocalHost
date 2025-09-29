@@ -118,11 +118,8 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       };
 
       ws.onmessage = (event) => {
-        console.log('📨 WebSocket MESSAGE received from voice agent');
-        console.log('📊 Message length:', event.data.length);
         try {
           const data = JSON.parse(event.data);
-          console.log('✅ Parsed JSON data:', data);
           handleRealtimeEvent(data);
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error);
@@ -248,7 +245,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
               int16Buffer[i] = Math.max(-32768, Math.min(32767, inputBuffer[i] * 32768));
             }
 
-            console.log('📤 Sending audio data to backend:', int16Buffer.length, 'samples');
             wsRef.current.send(JSON.stringify({
               type: 'audio',
               data: Array.from(int16Buffer)
@@ -265,134 +261,48 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   };
 
   const handleRealtimeEvent = (event: any) => {
-    console.log('🎧 REALTIME EVENT RECEIVED:', {
-      type: event.type,
-      timestamp: event.timestamp || Date.now(),
-      sessionId: sessionIdRef.current
-    });
-    console.log('🎧 Full event data:', event);
-    
     switch (event.type) {
-      case 'pulse':
-        console.log('💓 PULSE RECEIVED:', event.message);
-        console.log('💓 Received type:', event.received_type);
-        console.log('💓 Timestamp:', event.timestamp);
-        // Play a short beep to indicate pulse received
-        playPulseBeep();
-        break;
-        
-      case 'connection_established':
-        console.log('✅ CONNECTION ESTABLISHED:', event.message);
-        console.log('✅ Session ID confirmed:', event.session_id);
-        break;
-        
-      case 'audio':
-        // AI audio response received
-        console.log('🔊 ===== STEP 5: AI AUDIO RECEIVED FOR PLAYBACK =====');
-        console.log('🔊 AI AUDIO RESPONSE RECEIVED:', {
-          audioLength: event.audio?.length || 0,
-          sampleRate: event.sample_rate || 'unknown',
-          samples: event.samples || 'unknown',
-          timestamp: event.timestamp
-        });
-        
-        if (event.audio) {
-          console.log('🔊 STEP 6: PLAYING AI SPEECH TO USER...');
-          console.log('🔊 About to play AI spoken response through speakers');
-          playAudioData(event.audio);
-        } else {
-          console.warn('⚠️ AI audio response received but no audio data');
-        }
-        break;
-        
-      case 'audio_ack':
-        console.log('✅ AUDIO ACK RECEIVED:', {
-          received: event.received,
-          bufferSize: event.buffer_size,
-          timestamp: event.timestamp
-        });
-        break;
-        
-      case 'interrupt_ack':
-        console.log('✅ INTERRUPT ACK RECEIVED:', {
-          timestamp: event.timestamp
-        });
-        break;
-        
       case 'agent_start':
-        console.log('🤖 AI Agent started:', event.agent_name);
-        break;
-        
-      case 'agent_end':
-        console.log('🤖 AI Agent ended:', event.agent_name);
+        console.log('🤖 Agent started:', event.agent_name);
         break;
         
       case 'tool_start':
-        console.log('🔧 AI using tool:', event.tool_name);
+        console.log('🔧 Tool called:', event.tool_name);
         break;
         
       case 'tool_end':
-        console.log('🔧 AI tool completed:', event.tool_name);
+        console.log('🔧 Tool completed:', event.tool_name);
         console.log('🔧 Tool output:', event.output);
-        handleToolResult(event.tool_name, event.output);
+        // Note: Voice agent tool results are handled by handleVoiceToolResult, not handleToolResult
         break;
         
-      case 'history_updated':
-        console.log('📚 History updated');
-        if (event.history) {
-          updateMessagesFromHistory(event.history);
-        }
-        break;
-        
-      case 'history_added':
-        console.log('📚 History item added');
-        if (event.item) {
-          addMessageFromHistoryItem(event.item);
-        }
+      case 'voice_tool_result':
+        console.log('🔧 VOICE TOOL RESULT RECEIVED:', event);
+        handleVoiceToolResult(event);
         break;
         
       case 'error':
-        console.error('❌ AI REALTIME ERROR:', event.error);
-        console.error('❌ Error timestamp:', event.timestamp);
+        console.error('❌ Error:', event.error);
         break;
         
-      case 'message_ack':
-        console.log('✅ MESSAGE ACK RECEIVED:', {
-          receivedType: event.received_type,
-          timestamp: event.timestamp
-        });
+      case 'audio':
+        if (event.audio) {
+          playAudioData(event.audio);
+        }
         break;
         
-      case 'transcription_complete':
-        console.log('📝 ===== STEP 2.5: SPEECH TRANSCRIBED =====');
-        console.log('📝 Your speech has been converted to text by OpenAI');
-        break;
-        
-      case 'conversation_item_created':
-        console.log('📚 ===== NEW MESSAGE ADDED =====');
-        console.log('📚 New conversation item:', event.item);
-        break;
-        
-      case 'audio_done':
-        console.log('🔊 ===== AI AUDIO GENERATION COMPLETE =====');
-        console.log('🔊 AI has finished generating speech');
-        break;
-        
-      case 'response_done':
-        console.log('✅ ===== AI RESPONSE COMPLETE =====');
-        console.log('✅ AI has finished responding');
+      case 'pulse':
+        playPulseBeep();
         break;
         
       default:
-        console.log('❓ UNKNOWN EVENT TYPE:', event.type);
-        console.log('❓ Unknown event data:', event);
+        // Silently handle other events
+        break;
     }
   };
 
   // Handle tool results
   const handleToolResult = (toolName: string, output: any) => {
-    console.log('🔧 Processing tool result:', toolName, output);
-    
     try {
       // Parse tool output to extract structured actions
       let parsedOutput;
@@ -402,20 +312,185 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
         parsedOutput = output;
       }
       
-      console.log('🔧 Parsed tool output:', parsedOutput);
-      
       // Extract actions from tool result (same as text agent)
       if (parsedOutput.actions && Array.isArray(parsedOutput.actions)) {
-        console.log('🔄 VOICE AGENT - Processing structured actions from tool result:', parsedOutput.actions);
+        console.log('🔄 Processing actions:', parsedOutput.actions);
         parsedOutput.actions.forEach((action: any) => {
           processStructuredAction(action, agentType);
         });
-      } else {
-        console.log('⚠️ No structured actions found in tool result');
       }
       
     } catch (error) {
       console.error('❌ Error processing tool result:', error);
+    }
+  };
+
+  // Process structured actions for voice agent (WebSocket-based)
+  const processVoiceStructuredAction = (action: any, agentType: string, sessionId: string) => {
+    console.log('🔧 Processing voice structured action:', action.type, action.data);
+    
+    switch (action.type) {
+      case 'add_booking':
+        console.log('📅 Adding booking for voice agent:', action.data);
+        
+        // Convert time format (handle both 24-hour and 12-hour formats)
+        const convertTimeFormat = (time: string) => {
+          // If already in 12-hour format (contains AM/PM), return as is
+          if (time.includes('AM') || time.includes('PM')) {
+            return time;
+          }
+          
+          // Convert from 24-hour format
+          const [hours, minutes] = time.split(':');
+          const hour24 = parseInt(hours);
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+          const ampm = hour24 >= 12 ? 'PM' : 'AM';
+          return `${hour12}:${minutes} ${ampm}`;
+        };
+        
+        const newBooking = {
+          id: action.data.id,
+          time: convertTimeFormat(action.data.time),
+          date: action.data.date,
+          customerName: action.data.customer_name,
+          customerEmail: '',
+          service: action.data.service || '',
+          status: 'confirmed' as const
+        };
+        
+        addBooking(agentType, newBooking);
+        console.log('📅 Booking added to frontend state:', newBooking);
+        
+        // Send response back to backend via WebSocket with a small delay
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          const toolResultResponse = {
+            type: 'voice_tool_result_response',
+            data: {
+              tool_name: 'add_booking_async',
+              output: {
+                success: true,
+                message: `Booking added for ${action.data.customer_name} on ${action.data.date} at ${action.data.time}`,
+                booking: newBooking
+              },
+              agent_type: agentType,
+              session_id: sessionId
+            }
+          };
+          
+          console.log('🔧 Sending add_booking response to backend:', toolResultResponse);
+          // Add small delay to ensure voice agent has finished processing
+          setTimeout(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify(toolResultResponse));
+            }
+          }, 500); // 500ms delay
+        }
+        break;
+        
+      case 'check_booking':
+        console.log('🔍 Checking booking for voice agent:', action.data);
+        const { customer_name, date: bookingDate, time } = action.data;
+        
+        // Check if booking exists
+        const bookingCheck = checkBooking(agentType, customer_name, bookingDate, time);
+        console.log('🔍 Booking check result:', bookingCheck);
+        
+        let response;
+        if (bookingCheck.exists && bookingCheck.booking) {
+          // Booking exists - cancel it in frontend
+          console.log('✅ Booking found, cancelling in frontend:', bookingCheck.booking.id);
+          cancelBooking(agentType, bookingCheck.booking.id);
+          
+          response = {
+            success: true,
+            message: `Booking cancelled for ${customer_name} on ${bookingDate} at ${time}`,
+            cancelled: true,
+            booking: bookingCheck.booking
+          };
+        } else {
+          // Booking doesn't exist
+          response = {
+            success: false,
+            message: `No booking found for ${customer_name} on ${bookingDate} at ${time}`,
+            cancelled: false
+          };
+        }
+        
+        // Send response back to backend via WebSocket with a small delay
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          const toolResultResponse = {
+            type: 'voice_tool_result_response',
+            data: {
+              tool_name: 'cancel_booking_async',
+              output: response,
+              agent_type: agentType,
+              session_id: sessionId,
+              customer_name: customer_name,
+              date: bookingDate,
+              time: time
+            }
+          };
+          
+          console.log('🔧 Sending check_booking response to backend:', toolResultResponse);
+          // Add small delay to ensure voice agent has finished processing
+          setTimeout(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify(toolResultResponse));
+            }
+          }, 500); // 500ms delay
+        }
+        break;
+        
+      case 'check_availability':
+        console.log('🔍 Checking availability for voice agent:', action.data);
+        const { date } = action.data;
+        const slots = getAvailableSlots(agentType, date);
+        
+        console.log('🔍 Available slots:', slots);
+        
+        // Send tool result back to backend via WebSocket with a small delay
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          const toolResultResponse = {
+            type: 'voice_tool_result_response',
+            data: {
+              tool_name: 'check_availability_async',
+              output: slots,
+              agent_type: agentType,
+              session_id: sessionId,
+              date: date
+            }
+          };
+          
+          console.log('🔧 Sending check_availability response to backend:', toolResultResponse);
+          // Add small delay to ensure voice agent has finished processing
+          setTimeout(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify(toolResultResponse));
+            }
+          }, 500); // 500ms delay
+        }
+        break;
+        
+      default:
+        console.log('⚠️ Unknown action type for voice agent:', action.type);
+        break;
+    }
+  };
+
+  // Handle voice tool results from WebSocket
+  const handleVoiceToolResult = (event: any) => {
+    try {
+      const { tool_name, tool_output, session_id } = event;
+      
+      // Process the tool output to extract actions
+      if (tool_output && tool_output.actions && Array.isArray(tool_output.actions)) {
+        tool_output.actions.forEach((action: any) => {
+          processVoiceStructuredAction(action, action.agent_type || agentType, session_id);
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error processing voice tool result:', error);
     }
   };
 
@@ -512,14 +587,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
   };
 
   const playAudioData = (audioBase64: string) => {
-    console.log('🔊 ===== STEP 6: BUFFERING AI AUDIO CHUNK =====');
-    console.log('🔊 PLAY AUDIO DATA CALLED:', {
-      audioContextExists: !!audioContextRef.current,
-      audioDataLength: audioBase64?.length || 0,
-      isCurrentlyPlaying: isPlayingRef.current,
-      bufferLength: audioBufferRef.current.length
-    });
-    
     if (!audioContextRef.current) {
       console.error('❌ No audio context available for playback');
       return;
@@ -541,11 +608,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       // Convert bytes to Int16Array (PCM16 format)
       const int16Array = new Int16Array(bytes.buffer);
       
-      console.log('🔄 STEP 6a: Adding audio chunk to buffer:', {
-        samples: int16Array.length,
-        bufferLength: audioBufferRef.current.length
-      });
-      
       // Add to buffer instead of playing immediately
       audioBufferRef.current.push(int16Array);
       
@@ -565,11 +627,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
     }
     
     isPlayingRef.current = true;
-    console.log('🔊 ===== STEP 7: PLAYING BUFFERED AUDIO =====');
-    console.log('🔊 Starting buffered audio playback:', {
-      chunks: audioBufferRef.current.length,
-      totalSamples: audioBufferRef.current.reduce((sum, chunk) => sum + chunk.length, 0)
-    });
     
     try {
       // Combine all buffered chunks
@@ -606,7 +663,6 @@ const PhonePanel: React.FC<PhonePanelProps> = ({
       source.connect(audioContextRef.current!.destination);
       
       source.onended = () => {
-        console.log('✅ STEP 7b: Audio playback completed');
         isPlayingRef.current = false;
         // Check if there are more chunks to play
         if (audioBufferRef.current.length > 0) {

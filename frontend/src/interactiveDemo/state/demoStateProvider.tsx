@@ -133,6 +133,7 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     const booked = bookings.map(b => b.time);
     const available = allSlots.filter(slot => !booked.includes(slot));
 
+    console.log('🔍 getAvailableSlots:', { agentType, date, booked, available });
     return { available, booked };
   };
 
@@ -158,13 +159,20 @@ export const DemoStateProvider: React.FC<{ children: ReactNode }> = ({ children 
           ...booking,
           id: `${booking.date}_${booking.time}_${booking.customerName}`
         };
-    setState(prev => ({
-      ...prev,
-      calendar: {
-        ...prev.calendar,
-        [agentType]: [...(prev.calendar[agentType] || []), newBooking]
-      }
-    }));
+    
+    console.log('📅 addBooking:', { agentType, newBooking });
+    
+    setState(prev => {
+      const updatedState = {
+        ...prev,
+        calendar: {
+          ...prev.calendar,
+          [agentType]: [...(prev.calendar[agentType] || []), newBooking]
+        }
+      };
+      
+      return updatedState;
+    });
   };
 
   const cancelBooking = (agentType: string, bookingId: string) => {

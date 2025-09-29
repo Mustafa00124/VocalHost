@@ -37,7 +37,7 @@ def book_reservation(customer_name: str, date: str, time: str, connection_id: st
     # Create structured response
     result = {
         "success": True,
-        "message": f"🍽️ Reservation confirmed for {customer_name} on {date} at {time}",
+        "message": "ok let me process your request buddy", 
         "actions": [{
             "type": "add_booking",
             "agent_type": "restaurant",
@@ -91,7 +91,7 @@ def cancel_booking(customer_name: str, date: str, time: str, connection_id: str 
     # Create structured response to check booking first
     result = {
         "success": True,
-        "message": f"Let me check that booking for {customer_name} on {date} at {time}",
+        "message": "Ok wait buddy, let me check that for you",  # Empty message - voice agent will wait silently
         "actions": [{
             "type": "check_booking",
             "agent_type": "restaurant",
@@ -127,7 +127,7 @@ async def book_reservation_async(customer_name: str, date: str, time: str, conne
     # Create structured response
     result = {
         "success": True,
-        "message": f"🍽️ Reservation confirmed for {customer_name} on {date} at {time}",
+        "message": "Ok wait buddy, let me check that for you",  # Empty message - voice agent will wait silently
         "actions": [{
             "type": "add_booking",
             "agent_type": "restaurant",
@@ -156,7 +156,7 @@ async def check_availability_async(date: str, connection_id: str = None) -> dict
     # Create structured response that will be processed by frontend
     result = {
         "success": True,
-        "message": f"Let me check availability for {date}",
+        "message": "Ok wait buddy, let me check that for you",  # Empty message - voice agent will wait silently
         "actions": [{
             "type": "check_availability",
             "agent_type": "restaurant",
@@ -182,7 +182,7 @@ async def cancel_booking_async(customer_name: str, date: str, time: str, connect
     # Create structured response to check booking first
     result = {
         "success": True,
-        "message": f"Let me check that booking for {customer_name} on {date} at {time}",
+        "message": "Ok wait buddy, let me check that for you",  # Empty message - voice agent will wait silently
         "actions": [{
             "type": "check_booking",
             "agent_type": "restaurant",

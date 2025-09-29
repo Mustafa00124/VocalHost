@@ -29,6 +29,7 @@ class RealtimeWebSocketManager:
         self.active_sessions: dict[str, RealtimeSession] = {}
         self.session_contexts: dict[str, Any] = {}
         self.websockets: dict[str, WebSocket] = {}
+        self.pending_tool_results: dict[str, dict] = {}  # Store pending tool results
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
@@ -96,9 +97,9 @@ class RealtimeWebSocketManager:
 
     async def send_audio(self, session_id: str, audio_bytes: bytes):
         if session_id in self.active_sessions:
-            logger.info(f"🔌 Sending audio to session {session_id}, bytes: {len(audio_bytes)}")
+            # logger.info(f"🔌 Sending audio to session {session_id}, bytes: {len(audio_bytes)}")
             await self.active_sessions[session_id].send_audio(audio_bytes)
-            logger.info(f"🔌 Audio sent to session {session_id}")
+            # logger.info(f"🔌 Audio sent to session {session_id}")
         else:
             logger.error(f"🔌 No active session found for {session_id}")
 
@@ -130,6 +131,112 @@ class RealtimeWebSocketManager:
             return
         await session.interrupt()
 
+    async def _handle_tool_result(self, session_id: str, tool_name: str, tool_output: dict):
+        """Handle tool results for voice agent - send to frontend and wait for response"""
+        logger.info(f"🔧 VOICE TOOL RESULT: {tool_name} for session {session_id}")
+        logger.info(f"🔧 Tool output: {tool_output}")
+        
+        # Store the pending tool result
+        self.pending_tool_results[session_id] = {
+            "tool_name": tool_name,
+            "tool_output": tool_output,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        
+        # Send tool result to frontend via WebSocket
+        tool_result_event = {
+            "type": "voice_tool_result",
+            "tool_name": tool_name,
+            "tool_output": tool_output,
+            "session_id": session_id
+        }
+        
+        websocket = self.websockets.get(session_id)
+        if websocket:
+            await websocket.send_text(json.dumps(tool_result_event))
+            logger.info(f"🔧 Sent tool result to frontend for session {session_id}")
+        else:
+            logger.error(f"🔧 No WebSocket found for session {session_id}")
+
+    async def handle_tool_result_response(self, session_id: str, tool_result_data: dict):
+        """Handle tool result response from frontend and feed back to voice agent"""
+        logger.info(f"🔧 VOICE TOOL RESULT RESPONSE: {tool_result_data}")
+        
+        # Get the pending tool result
+        pending_result = self.pending_tool_results.get(session_id)
+        if not pending_result:
+            logger.error(f"🔧 No pending tool result found for session {session_id}")
+            return
+            
+        # Create a message to feed back to the voice agent
+        tool_name = pending_result["tool_name"]
+        frontend_result = tool_result_data.get("output", {})
+        
+        # Create natural language message for the voice agent
+        if tool_name == "check_availability_async":
+            available_times = frontend_result.get("available", [])
+            booked_times = frontend_result.get("booked", [])
+            
+            if available_times:
+                times_list = ", ".join(available_times)
+                message = f"Here are the available reservation times for your selected date: {times_list}. Please let me know which time you would like to reserve, and under what name!"
+            else:
+                message = "I'm sorry, but there are no available times for your selected date. Please try a different date."
+        elif tool_name == "cancel_booking_async":
+            if frontend_result.get("success") and frontend_result.get("cancelled"):
+                customer_name = tool_result_data.get("customer_name", "the customer")
+                date = tool_result_data.get("date", "the selected date")
+                time = tool_result_data.get("time", "the selected time")
+                message = f"Perfect! I've successfully cancelled the reservation for {customer_name} on {date} at {time}. The booking has been removed from our system."
+            else:
+                customer_name = tool_result_data.get("customer_name", "the customer")
+                date = tool_result_data.get("date", "the selected date")
+                time = tool_result_data.get("time", "the selected time")
+                message = f"I'm sorry, but I couldn't find a reservation for {customer_name} on {date} at {time}. Please double-check the details and try again."
+        elif tool_name == "add_booking_async":
+            if frontend_result.get("success"):
+                booking = frontend_result.get("booking", {})
+                customer_name = booking.get("customerName", "the customer")
+                date = booking.get("date", "the selected date")
+                time = booking.get("time", "the selected time")
+                message = f"Excellent! I've successfully made a reservation for {customer_name} on {date} at {time}. Your booking is confirmed and you'll receive a confirmation shortly."
+            else:
+                message = "I'm sorry, but I couldn't complete your reservation. Please try again or contact us for assistance."
+        elif tool_name == "book_reservation_async":
+            if frontend_result.get("success"):
+                booking = frontend_result.get("booking", {})
+                customer_name = booking.get("customerName", "the customer")
+                date = booking.get("date", "the selected date")
+                time = booking.get("time", "the selected time")
+                message = f"Excellent! I've successfully made a reservation for {customer_name} on {date} at {time}. Your booking is confirmed and you'll receive a confirmation shortly."
+            else:
+                message = "I'm sorry, but I couldn't complete your reservation. Please try again or contact us for assistance."
+        else:
+            # Generic tool result handling
+            message = f"Tool {tool_name} completed successfully. Result: {json.dumps(frontend_result)}"
+        
+        logger.info(f"🔧 Feeding tool result back to voice agent: {message}")
+        
+        # Send the result back to the voice agent
+        try:
+            session = self.active_sessions.get(session_id)
+            if session:
+                # Create a user input message with the tool result
+                from agents.realtime.config import RealtimeUserInputMessage
+                user_message = RealtimeUserInputMessage(
+                    content=[{"type": "input_text", "text": message}]
+                )
+                await session.send_message(user_message)
+                logger.info(f"🔧 Tool result fed back to voice agent for session {session_id}")
+            else:
+                logger.error(f"🔧 No active session found for {session_id}")
+        except Exception as e:
+            logger.error(f"🔧 Error feeding tool result back to voice agent: {e}")
+        finally:
+            # Clean up pending result
+            if session_id in self.pending_tool_results:
+                del self.pending_tool_results[session_id]
+
     async def _process_events(self, session_id: str):
         try:
             logger.info(f"🔌 Starting event processing for session: {session_id}")
@@ -138,23 +245,29 @@ class RealtimeWebSocketManager:
             logger.info(f"🔌 Session and websocket found for: {session_id}")
 
             async for event in session:
-                logger.info(f"🔌 EVENT RECEIVED: {event.type}")
+                # logger.info(f"🔌 EVENT RECEIVED: {event.type}")
                 if event.type == "tool_start":
                     logger.info(f"🔧 TOOL START: {event.tool.name if hasattr(event, 'tool') else 'Unknown tool'}")
                 elif event.type == "tool_end":
                     logger.info(f"🔧 TOOL END: {event.tool.name if hasattr(event, 'tool') else 'Unknown tool'}")
                     logger.info(f"🔧 TOOL OUTPUT: {event.output if hasattr(event, 'output') else 'No output'}")
+                    
+                    # Handle tool results for voice agent
+                    if hasattr(event, 'output') and event.output:
+                        await self._handle_tool_result(session_id, event.tool.name, event.output)
                 elif event.type == "audio":
-                    logger.info(f"🔌 AUDIO EVENT RECEIVED! Audio data length: {len(event.audio.data) if hasattr(event, 'audio') and event.audio else 'No audio data'}")
+                    # logger.info(f"🔌 AUDIO EVENT RECEIVED! Audio data length: {len(event.audio.data) if hasattr(event, 'audio') and event.audio else 'No audio data'}")
+                    pass
                 elif event.type == "agent_start":
                     logger.info(f"🔌 AGENT STARTED: {event.agent.name}")
                 elif event.type == "agent_end":
+                    pass
                     logger.info(f"🔌 AGENT ENDED: {event.agent.name}")
                 elif event.type == "error":
                     logger.error(f"🔌 ERROR EVENT: {event.error}")
                 
                 event_data = await self._serialize_event(event)
-                logger.info(f"🔌 WebSocket sending event: {event.type}")
+                # logger.info(f"🔌 WebSocket sending event: {event.type}")
                 await websocket.send_text(json.dumps(event_data))
         except Exception as e:
             logger.error(f"Error processing events for session {session_id}: {e}")
@@ -228,17 +341,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     image_buffers: dict[str, dict[str, Any]] = {}
     try:
         while True:
-            logger.info(f"🔌 WebSocket receiving data")
+            # logger.info(f"🔌 WebSocket receiving data")
             data = await websocket.receive_text()
             message = json.loads(data)
-            logger.info(f"🔌 WebSocket received message")
+            # logger.info(f"🔌 WebSocket received message")
             
             if message["type"] == "audio":
                 # Convert int16 array to bytes
                 int16_data = message["data"]
                 audio_bytes = struct.pack(f"{len(int16_data)}h", *int16_data)
                 await manager.send_audio(session_id, audio_bytes)
-                logger.info(f"🔌 WebSocket sent audio")
+                # logger.info(f"🔌 WebSocket sent audio")
             elif message["type"] == "commit_audio":
                 # Force close the current input audio turn
                 await manager.send_client_event(session_id, {"type": "input_audio_buffer.commit"})
@@ -251,6 +364,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 logger.info(f"🔌 Received text message: {message.get('content', [{}])[0].get('text', '')}")
                 await manager.send_user_message(session_id, message)
                 logger.info(f"🔌 Text message sent to RealtimeRunner")
+            elif message["type"] == "voice_tool_result_response":
+                # Handle tool result response from frontend
+                logger.info(f"🔧 Received voice tool result response: {message}")
+                await manager.handle_tool_result_response(session_id, message.get("data", {}))
+                logger.info(f"🔧 Tool result response processed for session {session_id}")
 
     except WebSocketDisconnect:
         logger.info(f"🔌 WebSocket disconnected: {session_id}")
