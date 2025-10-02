@@ -79,12 +79,6 @@ class DemoAgent:
         self.agent = create_restaurant_agent()
 
 
-
-    async def close_session(self, connection_id: str) -> None:
-        """Close and remove a session for a given WS connection if it exists."""
-        # For now, we just log the session close since we're using OpenAIConversationsSession
-        logger.info(f"🔻 Session closed for {connection_id}")
-
     async def process_message(
         self,
         message: str,
