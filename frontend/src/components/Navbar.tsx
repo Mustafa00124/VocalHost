@@ -1,28 +1,41 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CalendarIcon, UserCircleIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, UserCircleIcon, PlusCircleIcon, ClockIcon, LightBulbIcon, PuzzlePieceIcon, HomeIcon, Bars3Icon, XMarkIcon, BuildingOfficeIcon, ChevronDownIcon, CreditCardIcon, ArrowRightOnRectangleIcon, PencilIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 import { FaGoogle } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useState, useEffect, useRef } from 'react';
 
 
-// Scroll helper function
-const scrollToSection = (sectionId: string) => {
-  const section = document.getElementById(sectionId);
-  if (section) {
-    section.scrollIntoView({ behavior: 'smooth' });
-  }
-};
+// Scroll helper function - moved inside component to access navigate
 
 const Navbar = () => {
   const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoginPage = location.pathname === '/login';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Scroll helper function
+  const scrollToSection = (sectionId: string) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // If section doesn't exist on current page, navigate to home first
+      navigate('/');
+      // Wait for navigation to complete, then scroll
+      setTimeout(() => {
+        const homeSection = document.getElementById(sectionId);
+        if (homeSection) {
+          homeSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -62,13 +75,21 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className={`backdrop-blur-lg border-b sticky top-0 z-50 bg-gray-800/90 border-gray-700`}>
+    <nav 
+      className="backdrop-blur-lg border-b sticky top-0 z-50"
+      style={{
+        background: 'var(--glass-bg)',
+        backdropFilter: 'var(--glass-blur)',
+        borderBottom: '1px solid var(--glass-border)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+      }}
+    >
       {/* Hidden elements to preload theme styles - reduces flicker on toggle */}
       <div className="hidden bg-gray-800/90 border-gray-700"></div>
       <div className="hidden text-yellow-400 text-gray-600 text-primary-400 text-primary-600"></div>
       
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-16">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -76,7 +97,7 @@ const Navbar = () => {
             className="flex items-center"
           >
             <Link to="/" className="flex items-center">
-              <img src="/logo.png" alt="VocalHost Logo" className="h-20 w-auto" />
+              <img src="/logo.png" alt="VocalHost Logo" className="h-14 w-auto" />
             </Link>
           </motion.div>
           
@@ -96,7 +117,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-4">
+          <div className="hidden lg:flex items-center space-x-4 ml-auto">
             {!loading && !user && (
               <NavLink to="/" label="Home" onClick={closeMenu} />
             )}
@@ -110,14 +131,6 @@ const Navbar = () => {
                   }} 
                   label="Features" 
                   icon={<PuzzlePieceIcon className="w-3.5 h-3.5" />}
-                />
-                <NavButton 
-                  onClick={() => {
-                    scrollToSection('demo-section');
-                    closeMenu();
-                  }} 
-                  label="Demo" 
-                  icon={<CalendarIcon className="w-3.5 h-3.5" />}
                 />
                 <NavButton 
                   onClick={() => {
@@ -183,6 +196,21 @@ const Navbar = () => {
                 />
               </>
             )}
+            
+            {/* Theme Toggle Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              className="p-2 rounded-lg neuro-button"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <SunIcon className="w-5 h-5" />
+              ) : (
+                <MoonIcon className="w-5 h-5" />
+              )}
+            </motion.button>
             
             {!loading && (
               user ? (
@@ -288,27 +316,19 @@ const Navbar = () => {
                   )}
                 </div>
               ) : !isLoginPage && (
-                <motion.button
-                  whileHover={{ 
-                    scale: 1.05,
-                    boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-                  }}
-                  whileTap={{ 
-                    scale: 0.95,
-                    boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-                  }}
-                  onClick={handleGoogleLogin}
-                  className="ml-2 flex items-center gap-2 px-4 py-2 font-medium transition-all duration-300 rounded-lg"
-                  style={{
-                    background: '#e6e7ee',
-                    boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-                    border: '1px solid rgba(147, 51, 234, 0.3)',
-                    color: '#44476A'
-                  }}
-                >
-                  <FaGoogle className="text-sm" />
-                  <span className="text-sm">Sign in with Google</span>
-                </motion.button>
+                 <motion.button
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={handleGoogleLogin}
+                   className="ml-2 flex items-center gap-2 px-4 py-2 font-medium rounded-lg text-white shadow-lg"
+                   style={{
+                     background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
+                     boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
+                   }}
+                 >
+                   <FaGoogle className="text-sm" />
+                   <span className="text-sm">Sign in with Google</span>
+                 </motion.button>
               )
             )}
           </div>
@@ -338,14 +358,6 @@ const Navbar = () => {
                   }} 
                   label="Features" 
                   icon={<PuzzlePieceIcon className="w-3.5 h-3.5" />}
-                />
-                <MobileNavButton 
-                  onClick={() => {
-                    scrollToSection('demo-section');
-                    closeMenu();
-                  }} 
-                  label="Demo" 
-                  icon={<CalendarIcon className="w-3.5 h-3.5" />}
                 />
                 <MobileNavButton 
                   onClick={() => {
@@ -412,6 +424,26 @@ const Navbar = () => {
               </>
             )}
             
+            {/* Theme Toggle Button for Mobile */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={toggleTheme}
+              className="w-full px-4 py-3 rounded-lg flex items-center space-x-2 neuro-button"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <SunIcon className="w-4 h-4" />
+                  <span>Light Mode</span>
+                </>
+              ) : (
+                <>
+                  <MoonIcon className="w-4 h-4" />
+                  <span>Dark Mode</span>
+                </>
+              )}
+            </motion.button>
+            
             {!loading && user && (
               <div className={`pt-2 border-t ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}`}>
                 <div className={`flex items-center space-x-2 mb-3 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
@@ -435,30 +467,22 @@ const Navbar = () => {
             )}
             
             {!loading && !user && !isLoginPage && (
-              <motion.button
-                onClick={() => {
-                  handleGoogleLogin();
-                  closeMenu();
-                }}
-                whileHover={{ 
-                  scale: 1.02,
-                  boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-                }}
-                whileTap={{ 
-                  scale: 0.98,
-                  boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 rounded-lg mt-2"
-                style={{
-                  background: '#e6e7ee',
-                  boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-                  border: '1px solid rgba(147, 51, 234, 0.3)',
-                  color: '#44476A'
-                }}
-              >
-                <FaGoogle className="text-sm" />
-                <span>Sign in with Google</span>
-              </motion.button>
+               <motion.button
+                 onClick={() => {
+                   handleGoogleLogin();
+                   closeMenu();
+                 }}
+                 whileHover={{ scale: 1.02 }}
+                 whileTap={{ scale: 0.98 }}
+                 className="w-full flex items-center justify-center gap-2 py-3 px-4 font-medium rounded-lg mt-2 text-white shadow-lg"
+                 style={{
+                   background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
+                   boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
+                 }}
+               >
+                 <FaGoogle className="text-sm" />
+                 <span>Sign in with Google</span>
+               </motion.button>
             )}
           </div>
         </motion.div>
@@ -471,26 +495,14 @@ const NavButton = ({ onClick, label, className = "", icon }: { onClick: () => vo
   
   return (
     <motion.div
-      whileHover={{ 
-        scale: 1.05,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-      }}
-      whileTap={{ 
-        scale: 0.95,
-        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-      }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
       <button
         onClick={onClick}
-        className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
-        style={{
-          background: '#e6e7ee',
-          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-          border: '1px solid rgba(147, 51, 234, 0.3)',
-          color: '#44476A'
-        }}
+        className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1 text-sm font-medium transition-all duration-200 neuro-button ${className}`}
       >
-        {icon && <span>{icon}</span>}
+        {icon && <span className="text-xs">{icon}</span>}
         <span>{label}</span>
       </button>
     </motion.div>
@@ -501,27 +513,15 @@ const NavLink = ({ to, label, className = "", icon, onClick }: { to: string; lab
   
   return (
     <motion.div
-      whileHover={{ 
-        scale: 1.05,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-      }}
-      whileTap={{ 
-        scale: 0.95,
-        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-      }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
       <Link
         to={to}
         onClick={onClick}
-        className={`px-3 py-1.5 transition-all duration-200 rounded-lg flex items-center space-x-1 ${className}`}
-        style={{
-          background: '#e6e7ee',
-          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-          border: '1px solid rgba(147, 51, 234, 0.3)',
-          color: '#44476A'
-        }}
+        className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1 text-sm font-medium transition-all duration-200 neuro-button ${className}`}
       >
-        {icon && icon}
+        {icon && <span className="text-xs">{icon}</span>}
         <span>{label}</span>
       </Link>
     </motion.div>
@@ -534,21 +534,9 @@ const MobileNavButton = ({ onClick, label, className = "", icon }: { onClick: ()
   return (
     <motion.button
       onClick={onClick}
-      whileHover={{ 
-        scale: 1.02,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-      }}
-      whileTap={{ 
-        scale: 0.98,
-        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-      }}
-      className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
-      style={{
-        background: '#e6e7ee',
-        boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-        border: '1px solid rgba(147, 51, 234, 0.3)',
-        color: '#44476A'
-      }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={`w-full px-4 py-3 rounded-lg flex items-center space-x-2 neuro-button ${className}`}
     >
       {icon && <span>{icon}</span>}
       <span>{label}</span>
@@ -560,25 +548,13 @@ const MobileNavLink = ({ to, label, className = "", icon, onClick }: { to: strin
   
   return (
     <motion.div
-      whileHover={{ 
-        scale: 1.02,
-        boxShadow: '8px 8px 16px #b8b9be, -8px -8px 16px #ffffff'
-      }}
-      whileTap={{ 
-        scale: 0.98,
-        boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff'
-      }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
       <Link
         to={to}
         onClick={onClick}
-        className={`w-full px-4 py-3 transition-all duration-200 rounded-lg flex items-center space-x-2 ${className}`}
-        style={{
-          background: '#e6e7ee',
-          boxShadow: '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-          border: '1px solid rgba(147, 51, 234, 0.3)',
-          color: '#44476A'
-        }}
+        className={`w-full px-4 py-3 rounded-lg flex items-center space-x-2 neuro-button ${className}`}
       >
         {icon && icon}
         <span>{label}</span>

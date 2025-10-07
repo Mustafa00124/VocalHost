@@ -1,209 +1,304 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, BuildingOfficeIcon, ClockIcon, LightBulbIcon, ChatBubbleBottomCenterTextIcon, PhoneIcon, ArchiveBoxIcon, ArrowTrendingUpIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import FloatingCallDock from '../components/FloatingCallDock';
 import ErrorBoundary from '../components/ErrorBoundary';
 
-// Video slider data
-const videoData = [
-  {
-    id: 'restaurant',
-    title: 'Restaurant Demo',
-    description: 'See how VocalHost handles restaurant reservations, menu inquiries, and customer service for dining establishments.',
-    video: '/demo.mp4',
-    icon: '🍽️'
-  },
-  {
-    id: 'travel',
-    title: 'Travel Agency Demo',
-    description: 'Watch how our AI assistant manages travel bookings, itinerary planning, and customer support for travel agencies.',
-    video: '/demo.mp4',
-    icon: '✈️'
-  },
-  {
-    id: 'vehicle',
-    title: 'Vehicle Company Demo',
-    description: 'Discover how VocalHost streamlines vehicle sales, service appointments, and customer inquiries for automotive businesses.',
-    video: '/demo.mp4',
-    icon: '🚗'
+// Scroll helper function
+const scrollToSection = (sectionId: string) => {
+  const section = document.getElementById(sectionId);
+  if (section) {
+    section.scrollIntoView({ behavior: 'smooth' });
   }
-];
+};
+
 
 const Home = () => {
   console.log("🏠 Home component rendering...");
   const { user, loading } = useAuth();
   const { theme } = useTheme();
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   console.log("🏠 Home theme:", theme, "user:", user, "loading:", loading);
-
-  const nextVideo = () => {
-    setCurrentVideoIndex((prev) => (prev + 1) % videoData.length);
-  };
-
-  const prevVideo = () => {
-    setCurrentVideoIndex((prev) => (prev - 1 + videoData.length) % videoData.length);
-  };
   
   return (
     <div 
-      className="w-full relative overflow-hidden"
+      className="w-full relative overflow-hidden min-h-screen"
       style={{
-        background: 'radial-gradient(ellipse at center top, rgba(168, 85, 247, 0.95) 0%, rgba(139, 92, 246, 0.85) 20%, rgba(124, 58, 237, 0.7) 40%, rgba(59, 130, 246, 0.6) 60%, rgba(37, 99, 235, 0.5) 80%, rgba(255, 255, 255, 0) 100%)',
-        minHeight: '100vh',
+        background: theme === 'dark' ? 'var(--background-dark)' : 'var(--background-light)',
         backgroundAttachment: 'fixed'
       }}
     >
-      {/* Additional subtle gradient overlay - covers entire page */}
+      {/* Enhanced gradient overlays with theme awareness */}
       <div 
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse at center top, rgba(147, 51, 234, 0.5) 0%, rgba(99, 102, 241, 0.4) 30%, rgba(59, 130, 246, 0.3) 60%, rgba(37, 99, 235, 0.2) 80%, transparent 100%)'
+          background: theme === 'dark' 
+            ? 'radial-gradient(ellipse at 20% 30%, rgba(10, 14, 39, 0.8) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(30, 27, 75, 0.6) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(124, 58, 237, 0.3) 0%, transparent 70%)'
+            : 'radial-gradient(ellipse at 20% 30%, rgba(248, 250, 252, 0.9) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(226, 232, 240, 0.8) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(147, 51, 234, 0.1) 0%, transparent 70%)'
         }}
       ></div>
       
-      {/* Starry Universe Background */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Generate 1500 stars evenly distributed */}
-        {Array.from({ length: 1500 }, (_, i) => {
-          // Create a more even distribution using grid-like positioning with randomness
-          const gridSize = Math.ceil(Math.sqrt(1500));
-          const row = Math.floor(i / gridSize);
-          const col = i % gridSize;
-          
-          // Base position on grid
-          const baseTop = (row / (gridSize - 1)) * 100;
-          const baseLeft = (col / (gridSize - 1)) * 100;
-          
-          // Add random offset for more natural distribution
-          const randomOffset = 4; // 4% random offset for tighter distribution
-          const top = Math.max(0, Math.min(100, baseTop + (Math.random() - 0.5) * randomOffset));
-          const left = Math.max(0, Math.min(100, baseLeft + (Math.random() - 0.5) * randomOffset));
-          
-          const delay = Math.random() * 16; // Extended delay range (doubled)
-          const duration = 8 + Math.random() * 12; // Much slower, more varied duration (8-20 seconds)
-          const size = Math.random() > 0.85 ? 3 : Math.random() > 0.6 ? 2 : 1; // More small stars
-          
-          return (
-            <div
-              key={i}
-              className="star"
-              style={{
-                top: `${top}%`,
-                left: `${left}%`,
-                width: `${size}px`,
-                height: `${size}px`,
-                animationDelay: `-${delay}s`,
-                animationDuration: `${duration}s`
-              }}
-            />
-          );
-        })}
-        
-        {/* Moving shooting stars */}
-        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 animate-pulse" style={{
-          top: '18%', 
-          left: '0%', 
-          animation: 'shooting-star-1 8s linear infinite',
-          animationDelay: '0s'
-        }}></div>
-        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-pulse" style={{
-          top: '38%', 
-          left: '0%', 
-          animation: 'shooting-star-2 12s linear infinite',
-          animationDelay: '3s'
-        }}></div>
-        <div className="absolute w-1 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-40 animate-pulse" style={{
-          top: '58%', 
-          left: '0%', 
-          animation: 'shooting-star-3 10s linear infinite',
-          animationDelay: '6s'
-        }}></div>
-      </div>
+      {/* Animated gradient overlay - only in dark mode */}
+      {theme === 'dark' && (
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-60"
+          style={{
+            background: 'conic-gradient(from 0deg at 50% 50%, rgba(6, 182, 212, 0.1) 0deg, rgba(168, 85, 247, 0.1) 120deg, rgba(236, 72, 153, 0.1) 240deg, rgba(6, 182, 212, 0.1) 360deg)',
+            animation: 'rotate 20s linear infinite'
+          }}
+        ></div>
+      )}
       
-      <div className="relative z-10 space-y-12">
+      {/* Enhanced Starry Universe Background - Dark mode only */}
+      {theme === 'dark' && (
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Generate enhanced stars with different types - Reduced for performance */}
+          {Array.from({ length: 300 }, (_, i) => {
+            // Create a more even distribution using grid-like positioning with randomness
+            const gridSize = Math.ceil(Math.sqrt(300));
+            const row = Math.floor(i / gridSize);
+            const col = i % gridSize;
+            
+            // Base position on grid
+            const baseTop = (row / (gridSize - 1)) * 100;
+            const baseLeft = (col / (gridSize - 1)) * 100;
+            
+            // Add random offset for more natural distribution
+            const randomOffset = 6; // Slightly larger offset for more organic feel
+            const top = Math.max(0, Math.min(100, baseTop + (Math.random() - 0.5) * randomOffset));
+            const left = Math.max(0, Math.min(100, baseLeft + (Math.random() - 0.5) * randomOffset));
+            
+            const delay = Math.random() * 20; // Extended delay range
+            const duration = 10 + Math.random() * 15; // Slower, more varied duration
+            const size = Math.random() > 0.9 ? 4 : Math.random() > 0.7 ? 3 : Math.random() > 0.4 ? 2 : 1;
+            
+            // Assign different star types for variety
+            const starType = Math.random() > 0.8 ? 'pulse' : Math.random() > 0.6 ? 'twinkle' : '';
+            
+            return (
+              <div
+                key={`star-${i}`}
+                className={`star ${starType}`}
+                style={{
+                  top: `${top}%`,
+                  left: `${left}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `-${delay}s`,
+                  animationDuration: `${duration}s`
+                }}
+              />
+            );
+          })}
+          
+          {/* Floating Particles - Reduced for performance */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const delay = Math.random() * 20;
+            const duration = 15 + Math.random() * 10;
+            const size = Math.random() * 8 + 4;
+            const left = Math.random() * 100;
+            
+            return (
+              <div
+                key={`particle-${i}`}
+                className="particle"
+                style={{
+                  left: `${left}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDelay: `-${delay}s`,
+                  animationDuration: `${duration}s`
+                }}
+              />
+            );
+          })}
+          
+          {/* Enhanced Lightning Bolts - Reduced for performance */}
+          {Array.from({ length: 3 }, (_, i) => {
+            const top = Math.random() * 80 + 10; // 10% to 90%
+            const left = Math.random() * 80 + 10; // 10% to 90%
+            const delay = Math.random() * 5;
+            const duration = 2 + Math.random() * 3; // 2-5 seconds
+            
+            return (
+              <div
+                key={`lightning-${i}`}
+                className="absolute"
+                style={{
+                  top: `${top}%`,
+                  left: `${left}%`,
+                  width: '3px',
+                  height: `${60 + Math.random() * 40}px`, // 60-100px height
+                  background: 'linear-gradient(to bottom, rgba(255, 255, 255, 1) 0%, rgba(102, 126, 234, 0.9) 30%, rgba(118, 75, 162, 0.8) 60%, rgba(240, 147, 251, 0.6) 90%, transparent 100%)',
+                  boxShadow: `
+                    0 0 4px rgba(255, 255, 255, 1),
+                    0 0 8px rgba(102, 126, 234, 0.8),
+                    0 0 12px rgba(118, 75, 162, 0.6),
+                    0 0 16px rgba(240, 147, 251, 0.4)
+                  `,
+                  animation: `lightning-strike ${duration}s ease-in-out infinite`,
+                  animationDelay: `${delay}s`,
+                  transformOrigin: 'top center',
+                  borderRadius: '1px'
+                }}
+              />
+            );
+          })}
+          
+          {/* Moving shooting stars with enhanced effects */}
+          <div className="absolute w-2 h-1 opacity-80" style={{
+            top: '15%', 
+            left: '0%', 
+            background: 'linear-gradient(to right, transparent, rgba(255, 255, 255, 1), rgba(102, 126, 234, 0.8), transparent)',
+            boxShadow: '0 0 8px rgba(102, 126, 234, 0.6), 0 0 16px rgba(118, 75, 162, 0.4)',
+            animation: 'shooting-star-1 8s linear infinite',
+            animationDelay: '0s'
+          }}></div>
+          <div className="absolute w-2 h-1 opacity-70" style={{
+            top: '35%', 
+            left: '0%', 
+            background: 'linear-gradient(to right, transparent, rgba(255, 255, 255, 1), rgba(118, 75, 162, 0.8), transparent)',
+            boxShadow: '0 0 8px rgba(118, 75, 162, 0.6), 0 0 16px rgba(240, 147, 251, 0.4)',
+            animation: 'shooting-star-2 12s linear infinite',
+            animationDelay: '3s'
+          }}></div>
+          <div className="absolute w-2 h-1 opacity-60" style={{
+            top: '55%', 
+            left: '0%', 
+            background: 'linear-gradient(to right, transparent, rgba(255, 255, 255, 1), rgba(240, 147, 251, 0.8), transparent)',
+            boxShadow: '0 0 8px rgba(240, 147, 251, 0.6), 0 0 16px rgba(102, 126, 234, 0.4)',
+            animation: 'shooting-star-3 10s linear infinite',
+            animationDelay: '6s'
+          }}></div>
+        </div>
+      )}
+      
+      <div className="relative z-10">
         {/* Hero Section */}
         <section className="min-h-[80vh] flex items-center relative overflow-hidden">
           <div className="container mx-auto px-4 relative z-10">
           <div className="flex items-center justify-center min-h-[80vh]">
-            {/* Centered Content with Glass Morphism */}
+            {/* Enhanced Centered Content with Advanced Glass Morphism */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="max-w-4xl text-center space-y-8 p-12 rounded-3xl backdrop-blur-lg bg-white/15 border border-white/25 shadow-2xl"
+              className="max-w-4xl text-center space-y-8 p-12 rounded-3xl glass-enhanced interactive-card"
               style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                backdropFilter: 'blur(25px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25)'
+                background: 'var(--glass-bg)',
+                backdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: 'var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
               }}
             >
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight drop-shadow-2xl text-white"
+                className={`text-4xl md:text-5xl lg:text-6xl font-bold leading-tight drop-shadow-2xl ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}
               >
-                Unlock the Power of AI for Your Business
+                Create Your Business Voice Assistant
               </motion.h1>
               
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="w-24 h-1 rounded-full mx-auto bg-white"
+                className={`w-24 h-1 rounded-full mx-auto ${
+                  theme === 'dark' ? 'bg-white' : 'bg-purple-600'
+                }`}
               />
               
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.6 }}
-                className="text-lg md:text-xl leading-relaxed max-w-3xl mx-auto drop-shadow-lg text-white font-semibold"
+                className={`text-lg md:text-xl leading-relaxed max-w-3xl mx-auto drop-shadow-lg font-semibold ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-700'
+                }`}
               >
-                Discover cutting-edge tools that transform your workflow, boost productivity, and drive innovation. From content creation to data analysis, we've got you covered.
+                Automate appointment scheduling and customer service with an AI voice assistant tailored to your business's specific needs.
               </motion.p>
               
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="flex justify-center"
+                className="flex flex-row gap-3 justify-center items-stretch"
               >
+                {/* Create Assistant Button */}
                 <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   className="relative"
                 >
                   {!loading && !user ? (
                     <Link
                       to="/login"
-                      className="relative px-12 py-6 text-white font-bold text-xl rounded-2xl transition-all duration-300 inline-block"
+                      className="relative px-6 py-3 text-white font-semibold text-sm rounded-xl gradient-button ripple-button flex items-center justify-center min-w-[160px] h-12 shadow-lg"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(15px)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: 'inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.1)'
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)'
                       }}
                     >
-                      Create Assistant
+                      <span className="relative z-10">Create Assistant</span>
                     </Link>
                   ) : (
                     <Link
                       to="/create"
-                      className="relative px-12 py-6 text-white font-bold text-xl rounded-2xl transition-all duration-300 inline-block"
+                      className="relative px-6 py-3 text-white font-semibold text-sm rounded-xl gradient-button ripple-button flex items-center justify-center min-w-[160px] h-12 shadow-lg"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(15px)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: 'inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -4px -4px 8px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.1)'
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)'
                       }}
                     >
-                      Create Assistant
+                      <span className="relative z-10">Create Assistant</span>
                     </Link>
                   )}
+                </motion.div>
+
+                {/* Request Demo Button */}
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative"
+                >
+                  <a
+                    href="https://calendly.com/buggedbrilliance-support"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`relative px-6 py-3 font-semibold text-sm rounded-xl neuro-button flex items-center justify-center min-w-[160px] h-12 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-700'
+                    }`}
+                  >
+                    <span className="relative z-10">Request Demo</span>
+                  </a>
+                </motion.div>
+
+                {/* Interactive Demo Button - Opens the floating demo */}
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative"
+                >
+                  <button
+                    onClick={() => {
+                      // Trigger the floating demo widget
+                      const demoButton = document.querySelector('[data-demo-trigger]') as HTMLButtonElement;
+                      if (demoButton) {
+                        demoButton.click();
+                      }
+                    }}
+                    className={`relative px-6 py-3 font-semibold text-sm rounded-xl neuro-button flex items-center justify-center min-w-[160px] h-12 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-700'
+                    }`}
+                  >
+                    <span className="relative z-10">Interactive Demo</span>
+                  </button>
                 </motion.div>
               </motion.div>
             </motion.div>
@@ -212,239 +307,60 @@ const Home = () => {
         </section>
 
       {/* Features Section */}
-      <section id="features-section" className="relative mt-16 mb-16">
+      <section id="features-section" className="relative -mt-20 mb-16">
         <div className="text-center mb-10">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
+            className={`text-3xl font-bold inline-block mb-4 drop-shadow-lg ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}
           >
             Features
           </motion.h2>
-          <p className="max-w-2xl mx-auto text-white font-semibold">
+          <p className={`max-w-2xl mx-auto font-semibold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-700'
+          }`}>
             Our AI Voice Assistant comes with powerful features designed to help your business thrive
           </p>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 max-w-6xl mx-auto px-4">
           <FeatureCard
-            icon={<CalendarIcon className="w-8 h-8 text-white" />}
+            icon={<CalendarIcon className="w-6 h-6 text-white" />}
             title="Smart Scheduling"
             description="Handle appointments and bookings with customizable time slots"
           />
           <FeatureCard
-            icon={<BuildingOfficeIcon className="w-8 h-8 text-white" />}
+            icon={<BuildingOfficeIcon className="w-6 h-6 text-white" />}
             title="Business Integration"
             description="Tailored to your business type with custom descriptions and hours"
           />
           <FeatureCard
-            icon={<ClockIcon className="w-8 h-8 text-white" />}
+            icon={<ClockIcon className="w-6 h-6 text-white" />}
             title="Time Management"
             description="Set your business hours and preferred appointment durations"
           />
           <FeatureCard
-            icon={<UserGroupIcon className="w-8 h-8 text-white" />}
+            icon={<UserGroupIcon className="w-6 h-6 text-white" />}
             title="Customer Management"
             description="Track and manage your customer information and history"
           />
           <FeatureCard
-            icon={<ChatBubbleBottomCenterTextIcon className="w-8 h-8 text-white" />}
+            icon={<ChatBubbleBottomCenterTextIcon className="w-6 h-6 text-white" />}
             title="Natural Conversations"
             description="AI-powered natural language understanding for human-like interactions"
           />
           <FeatureCard
-            icon={<ArrowTrendingUpIcon className="w-8 h-8 text-white" />}
+            icon={<ArrowTrendingUpIcon className="w-6 h-6 text-white" />}
             title="Analytics & Insights"
             description="Track performance and gain insights to improve your business"
           />
         </div>
       </section>
       
-      {/* Demo Section - Video Slider */}
-      <section id="demo-section" className="relative mt-16 mb-16">
-        <div className="text-center mb-10">
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
-          >
-            See It In Action
-          </motion.h2>
-          <p className="max-w-2xl mx-auto text-white font-semibold">
-            Watch how our AI Voice Assistant seamlessly handles customer interactions across different industries
-          </p>
-        </div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          viewport={{ once: true }}
-          className="max-w-6xl mx-auto"
-        >
-          {/* 3D Carousel Container */}
-          <div className="relative h-96 overflow-hidden">
-            {/* Carousel Track */}
-            <div 
-              className="flex items-center justify-center h-full"
-              style={{ perspective: '1000px' }}
-            >
-              {/* Video Items */}
-              {videoData.map((video, index) => {
-                const offset = index - currentVideoIndex;
-                const isActive = offset === 0;
-                const isLeft = offset < 0;
-                const isRight = offset > 0;
-                
-                let transform = '';
-                let scale = 0.6;
-                let opacity = 0.4;
-                let zIndex = 1;
-                
-                if (isActive) {
-                  transform = 'translateX(0) translateZ(0)';
-                  scale = 1;
-                  opacity = 1;
-                  zIndex = 10;
-                } else if (isLeft) {
-                  transform = `translateX(${-200 + offset * 100}px) translateZ(-100px) rotateY(15deg)`;
-                } else if (isRight) {
-                  transform = `translateX(${200 + offset * 100}px) translateZ(-100px) rotateY(-15deg)`;
-                }
-                
-                return (
-                  <motion.div
-                    key={video.id}
-                    className="absolute"
-                    style={{
-                      transform,
-                      scale,
-                      opacity,
-                      zIndex,
-                      transformStyle: 'preserve-3d'
-                    }}
-                    animate={{
-                      transform,
-                      scale,
-                      opacity
-                    }}
-                    transition={{
-                      duration: 0.6,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    {/* Video Frame */}
-                    <div 
-                      className="relative rounded-xl overflow-hidden"
-                      style={{
-                        width: '280px',
-                        height: '360px',
-                        background: '#e6e7ee',
-                        boxShadow: isActive 
-                          ? '12px 12px 24px #b8b9be, -12px -12px 24px #ffffff'
-                          : '6px 6px 12px #b8b9be, -6px -6px 12px #ffffff',
-                        border: '1px solid rgba(147, 51, 234, 0.3)'
-                      }}
-                    >
-                      <video
-                        className="w-full h-full object-cover"
-                        controls={isActive}
-                        preload="metadata"
-                        style={{ 
-                          aspectRatio: '9/16',
-                          objectFit: 'cover'
-                        }}
-                      >
-                        <source src={video.video} type="video/mp4" />
-                        Your browser does not support the video tag.
-                      </video>
-                      
-                      {/* Video Overlay for non-active videos */}
-                      {!isActive && (
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                          <div className="text-center text-white">
-                            <span className="text-4xl mb-2 block">{video.icon}</span>
-                            <span className="text-sm font-medium">{video.title}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Navigation Arrows */}
-            <motion.button
-              onClick={prevVideo}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-4 rounded-full"
-              style={{
-                background: '#e6e7ee',
-                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-                border: '1px solid rgba(147, 51, 234, 0.3)',
-                color: '#44476A'
-              }}
-            >
-              <ChevronLeftIcon className="w-6 h-6" />
-            </motion.button>
-
-            <motion.button
-              onClick={nextVideo}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-4 rounded-full"
-              style={{
-                background: '#e6e7ee',
-                boxShadow: 'inset 2px 2px 4px #b8b9be, inset -2px -2px 4px #ffffff',
-                border: '1px solid rgba(147, 51, 234, 0.3)',
-                color: '#44476A'
-              }}
-            >
-              <ChevronRightIcon className="w-6 h-6" />
-            </motion.button>
-          </div>
-
-          {/* Video Info */}
-          <motion.div
-            key={currentVideoIndex}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-center mt-8"
-          >
-            <div className="flex items-center justify-center mb-2">
-              <span className="text-2xl mr-2">{videoData[currentVideoIndex].icon}</span>
-              <h3 className="text-xl font-bold text-white">
-                {videoData[currentVideoIndex].title}
-              </h3>
-            </div>
-            <p className="text-sm max-w-2xl mx-auto text-white font-semibold">
-              {videoData[currentVideoIndex].description}
-            </p>
-            
-            {/* Video Indicators */}
-            <div className="flex justify-center mt-4 space-x-2">
-              {videoData.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentVideoIndex(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentVideoIndex 
-                      ? 'bg-purple-500' 
-                      : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
-                />
-              ))}
-            </div>
-          </motion.div>
-        </motion.div>
-      </section>
       
       {/* Usage Section */}
       <section id="usage-section" className="relative mt-16 mb-16">
@@ -454,35 +370,39 @@ const Home = () => {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            className="text-3xl font-bold text-white inline-block mb-4 drop-shadow-lg"
+            className={`text-3xl font-bold inline-block mb-4 drop-shadow-lg ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}
           >
             How It Works
           </motion.h2>
-          <p className="max-w-2xl mx-auto text-white font-semibold">
+          <p className={`max-w-2xl mx-auto font-semibold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-700'
+          }`}>
             See how businesses are using VocalHost to streamline their operations
           </p>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 max-w-6xl mx-auto px-4">
           <UsageCard
-            icon={<PhoneIcon className="w-8 h-8 text-white" />}
+            icon={<PhoneIcon className="w-6 h-6 text-white" />}
             title="Medical Practices"
             description="Doctors use VocalHost to handle appointment scheduling, medication refill requests, and basic patient inquiries."
           />
           <UsageCard
-            icon={<ArchiveBoxIcon className="w-8 h-8 text-white" />}
+            icon={<ArchiveBoxIcon className="w-6 h-6 text-white" />}
             title="Law Firms"
             description="Attorneys use VocalHost to schedule consultations, handle client intake, and provide basic legal information."
           />
           <UsageCard
-            icon={<LightBulbIcon className="w-8 h-8 text-white" />}
+            icon={<LightBulbIcon className="w-6 h-6 text-white" />}
             title="Service Businesses"
             description="Salons, cleaning services, and consultants use VocalHost to manage their appointments and client relationships."
           />
         </div>
       </section>
       
-      {/* Floating Call Dock - WITH ERROR BOUNDARY */}
+      {/* Floating Call Dock - WITH ERROR BOUNDARY - Hidden by default, triggered by button */}
       <ErrorBoundary fallback={
         <div style={{position: 'fixed', bottom: '20px', right: '20px', background: 'red', color: 'white', padding: '10px', borderRadius: '5px', maxWidth: '300px'}}>
           <h4>🚨 Demo Widget Error</h4>
@@ -497,75 +417,91 @@ const Home = () => {
 };
 
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) => {
+  const { theme } = useTheme();
   
   return (
     <motion.div
       whileHover={{ 
-        scale: 1.02,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+        scale: 1.05,
+        rotateY: 8,
+        rotateX: 8,
+        y: -10
       }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.5, type: "spring", stiffness: 300 }}
       viewport={{ once: true }}
-      className="p-6 rounded-2xl transition-all duration-300 backdrop-blur-lg"
+      className="p-4 rounded-xl feature-card glass-enhanced transform-gpu"
       style={{
-        background: 'rgba(255, 255, 255, 0.12)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        background: theme === 'dark' ? 'var(--glass-bg-dark)' : 'var(--glass-bg-light)',
+        backdropFilter: 'var(--glass-blur)',
+        border: theme === 'dark' ? '1px solid var(--glass-border-dark)' : '1px solid var(--glass-border-light)',
+        boxShadow: theme === 'dark' ? 'var(--glass-shadow-dark)' : 'var(--glass-shadow-light)',
+        transformStyle: 'preserve-3d'
       }}
     >
       <div 
-        className="mb-4 p-3 rounded-xl inline-block backdrop-blur-sm"
+        className="mb-3 p-2 rounded-lg inline-block backdrop-blur-sm"
         style={{
-          background: 'rgba(255, 255, 255, 0.18)',
+          background: theme === 'dark' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(147, 51, 234, 0.15)',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.25)',
-          color: '#ffffff'
+          color: theme === 'dark' ? '#ffffff' : '#7c3aed'
         }}
       >
         {icon}
       </div>
-      <h3 className="text-xl font-bold mb-3 text-white">{title}</h3>
-      <p className="text-white font-semibold">{description}</p>
+      <h3 className={`text-lg font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+        {title}
+      </h3>
+      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+        {description}
+      </p>
     </motion.div>
   );
 };
 
 const UsageCard = ({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) => {
+  const { theme } = useTheme();
   
   return (
     <motion.div
       whileHover={{ 
-        scale: 1.02,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+        scale: 1.05,
+        rotateY: 8,
+        rotateX: 8,
+        y: -10
       }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.5, type: "spring", stiffness: 300 }}
       viewport={{ once: true }}
-      className="p-6 rounded-2xl transition-all duration-300 backdrop-blur-lg"
+      className="p-4 rounded-xl feature-card glass-enhanced transform-gpu"
       style={{
-        background: 'rgba(255, 255, 255, 0.12)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        background: theme === 'dark' ? 'var(--glass-bg-dark)' : 'var(--glass-bg-light)',
+        backdropFilter: 'var(--glass-blur)',
+        border: theme === 'dark' ? '1px solid var(--glass-border-dark)' : '1px solid var(--glass-border-light)',
+        boxShadow: theme === 'dark' ? 'var(--glass-shadow-dark)' : 'var(--glass-shadow-light)',
+        transformStyle: 'preserve-3d'
       }}
     >
       <div 
-        className="mb-4 p-3 rounded-xl inline-block backdrop-blur-sm"
+        className="mb-3 p-2 rounded-lg inline-block backdrop-blur-sm"
         style={{
-          background: 'rgba(255, 255, 255, 0.18)',
+          background: theme === 'dark' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(147, 51, 234, 0.15)',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.25)',
-          color: '#ffffff'
+          color: theme === 'dark' ? '#ffffff' : '#7c3aed'
         }}
       >
         {icon}
       </div>
-      <h3 className="text-xl font-bold mb-3 text-white">{title}</h3>
-      <p className="text-white font-semibold">{description}</p>
+      <h3 className={`text-lg font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+        {title}
+      </h3>
+      <p className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>
+        {description}
+      </p>
     </motion.div>
   );
 };

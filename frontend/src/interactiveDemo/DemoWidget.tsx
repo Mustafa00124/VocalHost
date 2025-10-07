@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../contexts/ThemeContext';
 import { AGENT_CONFIGS, getAgentConfig } from './agentConfig';
@@ -20,6 +20,7 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
   console.log("🎯 DemoWidget theme:", theme);
   
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showFloatingButton, setShowFloatingButton] = useState(false); // Hidden by default
   const [currentAgentId, setCurrentAgentId] = useState('restaurant');
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -40,7 +41,31 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
 
   const handleTryDemo = () => {
     setIsExpanded(true);
+    setShowFloatingButton(true);
   };
+
+  // Add global trigger for the Interactive Demo button
+  useEffect(() => {
+    const handleDemoTrigger = () => {
+      setShowFloatingButton(true);
+      setTimeout(() => {
+        setIsExpanded(true);
+      }, 100);
+    };
+
+    // Create a hidden button that can be triggered from anywhere
+    const triggerButton = document.createElement('button');
+    triggerButton.setAttribute('data-demo-trigger', 'true');
+    triggerButton.style.display = 'none';
+    triggerButton.onclick = handleDemoTrigger;
+    document.body.appendChild(triggerButton);
+
+    return () => {
+      if (document.body.contains(triggerButton)) {
+        document.body.removeChild(triggerButton);
+      }
+    };
+  }, []);
 
   const handleAgentChange = (agentId: string) => {
     setCurrentAgentId(agentId);
@@ -52,6 +77,11 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
     // Notify WebSocket of agent change
     // Agent type sync removed - using HTTP API
   };
+
+  // Don't render anything if the floating button should not be shown
+  if (!showFloatingButton) {
+    return null;
+  }
 
   if (!currentAgent) {
     console.log("🚨 No current agent found for ID:", currentAgentId);
@@ -77,6 +107,8 @@ const DemoWidget: React.FC<DemoWidgetProps> = ({ className = '' }) => {
         handleTryDemo={handleTryDemo}
         currentAgent={currentAgent}
         agentList={agentList}
+        showFloatingButton={showFloatingButton}
+        setShowFloatingButton={setShowFloatingButton}
       />
     </DemoStateProvider>
   );
@@ -98,6 +130,8 @@ const DemoWidgetContent: React.FC<{
   handleTryDemo: () => void;
   currentAgent: any;
   agentList: any[];
+  showFloatingButton: boolean;
+  setShowFloatingButton: (show: boolean) => void;
 }> = ({
   className,
   isExpanded,
@@ -112,7 +146,9 @@ const DemoWidgetContent: React.FC<{
   handleAgentChange,
   handleTryDemo,
   currentAgent,
-  agentList
+  agentList,
+  showFloatingButton,
+  setShowFloatingButton
 }) => {
   const { theme } = useTheme();
   
@@ -129,8 +165,8 @@ const DemoWidgetContent: React.FC<{
     <motion.div 
       className={`fixed bottom-6 right-6 z-50 ${className}`}
       initial={{ opacity: 0, scale: 0.8, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 1 }}
+      animate={{ opacity: showFloatingButton ? 1 : 0, scale: showFloatingButton ? 1 : 0.8, y: 0 }}
+      transition={{ duration: 0.5, delay: showFloatingButton ? 0.2 : 0 }}
     >
       <AnimatePresence mode="wait">
         {!isExpanded ? (
@@ -266,7 +302,10 @@ const DemoWidgetContent: React.FC<{
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              onClick={() => setIsExpanded(false)}
+              onClick={() => {
+                setIsExpanded(false);
+                setShowFloatingButton(false); // Hide the floating button when collapsed
+              }}
               className={`fixed bottom-6 right-6 z-[100] px-4 py-2 rounded-full shadow-lg transition-all duration-200 hover:scale-105 ${
                 theme === 'dark'
                   ? 'bg-gray-800/90 text-white border border-gray-600 hover:bg-gray-700/90'
