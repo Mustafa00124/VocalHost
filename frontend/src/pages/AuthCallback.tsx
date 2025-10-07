@@ -19,30 +19,27 @@ const AuthCallback = () => {
         const params = new URLSearchParams(location.search);
         const loginStatus = params.get('login');
         
+        console.log('AuthCallback: loginStatus =', loginStatus);
+        
         if (loginStatus === 'success') {
-          // Refresh the auth state
-          const response = await fetch(`${BASE_URL}/api/auth/user/me`, {
-            credentials: 'include',  // This is crucial for including cookies
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+          console.log('AuthCallback: Login successful, checking auth status...');
           
-          if (response.ok) {
-            await checkAuthStatus();
-            
-            // Redirect to create assistant page after successful login
-            navigate('/create');
-          } else {
-            console.error('Login was not successful');
-            navigate('/login');
-          }
+          // Wait a moment for the cookie to be set
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Check auth status and redirect
+          await checkAuthStatus();
+          
+          console.log('AuthCallback: Auth status checked, redirecting to /create');
+          
+          // Redirect to create assistant page after successful login
+          navigate('/create');
         } else {
-          console.error('Login was not successful');
+          console.error('AuthCallback: Login was not successful, redirecting to login');
           navigate('/login');
         }
       } catch (error) {
-        console.error('Auth callback error:', error);
+        console.error('AuthCallback: Auth callback error:', error);
         navigate('/login');
       }
     };

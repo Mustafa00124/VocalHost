@@ -1,44 +1,61 @@
 import os
 import json
 from datetime import datetime, date, time, timedelta
+from sqlalchemy.orm import Session
+from sqlalchemy import select
 from app.models import Booking
-from app.extensions import db
+from app.database import SessionLocal
 # from app.services.whatsapp_notification import send_booking_confirmation
 
 def load_booked_slots(assistant_id: int, date: datetime.date):
     """Return a dict of slot-strings → Booking rows for that assistant & date."""
-    rows = Booking.query.filter_by(assistant_id=assistant_id, date=date).all()
-    return {row.time.strftime("%I:%M %p").lstrip("0"): row for row in rows}
+    db = SessionLocal()
+    try:
+        stmt = select(Booking).filter_by(assistant_id=assistant_id, date=date)
+        rows = db.execute(stmt).scalars().all()
+        return {row.time.strftime("%I:%M %p").lstrip("0"): row for row in rows}
+    finally:
+        db.close()
 
 def handle_booking(assistant_id: int, date: datetime.date, time: datetime.time,
                   customer_name: str, details: str,  conversation_id: int = None):
     """Persist a new booking to the database."""
-    booking = Booking(
-        assistant_id=assistant_id, 
-        conversation_id=conversation_id,
-        date=date, 
-        time=time,
-        customer_name=customer_name, 
-        details=details
-    )
-    # print(f"Booking: {booking}")
-    db.session.add(booking)
-    db.session.commit()
-    # print(f"Booking saved: {customer_name} on {date} at {time}")
-    # try:
-    #     send_booking_confirmation(booking.id, conversation_id)
-    # except Exception as e:
-    #     print(f"Error sending booking notifications: {e}")
-    return booking
+    db = SessionLocal()
+    try:
+        booking = Booking(
+            assistant_id=assistant_id, 
+            conversation_id=conversation_id,
+            date=date, 
+            time=time,
+            customer_name=customer_name, 
+            details=details
+        )
+        # print(f"Booking: {booking}")
+        db.add(booking)
+        db.commit()
+        db.refresh(booking)
+        # print(f"Booking saved: {customer_name} on {date} at {time}")
+        # try:
+        #     send_booking_confirmation(booking.id, conversation_id)
+        # except Exception as e:
+        #     print(f"Error sending booking notifications: {e}")
+        return booking
+    finally:
+        db.close()
 
 def cancel_booking(assistant_id: int, date: date, time: time) -> Booking | None:
     """Delete an existing booking for the given slot."""
-    booking = Booking.query.filter_by(assistant_id=assistant_id, date=date, time=time).first()
-    if not booking:
-        return None
-    db.session.delete(booking)
-    db.session.commit()
-    return booking
+    db = SessionLocal()
+    try:
+        stmt = select(Booking).filter_by(assistant_id=assistant_id, date=date, time=time)
+        booking = db.execute(stmt).scalar_one_or_none()
+        if not booking:
+            return None
+        db.delete(booking)
+        db.commit()
+        return booking
+    finally:
+        db.close()
 
 
 def reschedule_booking(
@@ -49,36 +66,46 @@ def reschedule_booking(
     new_time: time
 ) -> Booking | None:
     """Update an existing booking to a new date/time."""
-    booking = Booking.query.filter_by(
-        assistant_id=assistant_id,
-        date=old_date,
-        time=old_time
-    ).first()
-    if not booking:
-        return None
-    booking.date = new_date
-    booking.time = new_time
-    db.session.commit()
-    return booking
+    db = SessionLocal()
+    try:
+        stmt = select(Booking).filter_by(
+            assistant_id=assistant_id,
+            date=old_date,
+            time=old_time
+        )
+        booking = db.execute(stmt).scalar_one_or_none()
+        if not booking:
+            return None
+        booking.date = new_date
+        booking.time = new_time
+        db.commit()
+        return booking
+    finally:
+        db.close()
 
 def load_user_bookings(assistant_id: int, conversation_id: int) -> list[dict]:
     """
     Return all future bookings for this assistant and conversation (caller).
     """
-    rows = Booking.query.\
-        filter_by(assistant_id=assistant_id, conversation_id=conversation_id).\
-        filter(Booking.date >= date.today()).\
-        all()
+    db = SessionLocal()
+    try:
+        stmt = select(Booking).filter_by(
+            assistant_id=assistant_id, 
+            conversation_id=conversation_id
+        ).filter(Booking.date >= date.today())
+        rows = db.execute(stmt).scalars().all()
 
-    return [
-      {
-        "date": row.date.strftime("%Y-%m-%d"),
-        "time": row.time.strftime("%I:%M %p").lstrip("0"),
-        "name": row.customer_name,
-        "details": row.details or "",
-      }
-      for row in rows
-    ]
+        return [
+          {
+            "date": row.date.strftime("%Y-%m-%d"),
+            "time": row.time.strftime("%I:%M %p").lstrip("0"),
+            "name": row.customer_name,
+            "details": row.details or "",
+          }
+          for row in rows
+        ]
+    finally:
+        db.close()
 
 def generate_time_slots(
     start_time_24: str,

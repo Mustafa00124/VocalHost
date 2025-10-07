@@ -153,45 +153,31 @@ const Navbar = () => {
             {!loading && user && (
               <>
                 <NavLink 
-                  to="/" 
-                  label="Home" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<HomeIcon className="w-3.5 h-3.5" />}
-                  onClick={closeMenu}
-                />
-                <NavLink 
                   to="/dashboard" 
                   label="Dashboard" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<BuildingOfficeIcon className="w-3.5 h-3.5" />}
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
+                  icon={<HomeIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
                 <NavLink 
                   to="/create" 
                   label="Create Assistant" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
                   icon={<PlusCircleIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
                 <NavLink 
-                  to="/manage-assistants" 
+                  to="/manage" 
                   label="Manage Assistants" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
                   icon={<PencilIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
                 <NavLink 
                   to="/schedule" 
                   label="Schedule" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<ClockIcon className="w-3.5 h-3.5" />}
-                  onClick={closeMenu}
-                />
-                <NavLink 
-                  to="/plans" 
-                  label="Pricing" 
-                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<BuildingOfficeIcon className="w-3.5 h-3.5" />}
+                  className={`flex items-center space-x-1 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
+                  icon={<CalendarIcon className="w-3.5 h-3.5" />}
                   onClick={closeMenu}
                 />
               </>
@@ -316,19 +302,19 @@ const Navbar = () => {
                   )}
                 </div>
               ) : !isLoginPage && (
-                 <motion.button
-                   whileHover={{ scale: 1.05 }}
-                   whileTap={{ scale: 0.95 }}
-                   onClick={handleGoogleLogin}
-                   className="ml-2 flex items-center gap-2 px-4 py-2 font-medium rounded-lg text-white shadow-lg"
-                   style={{
-                     background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
-                     boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
-                   }}
-                 >
-                   <FaGoogle className="text-sm" />
-                   <span className="text-sm">Sign in with Google</span>
-                 </motion.button>
+                 <Link to="/login">
+                   <motion.button
+                     whileHover={{ scale: 1.05 }}
+                     whileTap={{ scale: 0.95 }}
+                     className="ml-2 flex items-center gap-2 px-6 py-2 font-medium rounded-lg text-white shadow-lg"
+                     style={{
+                       background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
+                       boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
+                     }}
+                   >
+                     <span className="text-sm">Get Started</span>
+                   </motion.button>
+                 </Link>
               )
             )}
           </div>
@@ -396,29 +382,22 @@ const Navbar = () => {
                 <MobileNavLink 
                   to="/create" 
                   label="Create Assistant" 
-                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
                   icon={<PlusCircleIcon className="w-4 h-4" />}
                   onClick={closeMenu}
                 />
                 <MobileNavLink 
-                  to="/manage-assistants" 
+                  to="/manage" 
                   label="Manage Assistants" 
-                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
+                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
                   icon={<PencilIcon className="w-4 h-4" />}
                   onClick={closeMenu}
                 />
                 <MobileNavLink 
                   to="/schedule" 
                   label="Schedule" 
-                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<ClockIcon className="w-4 h-4" />}
-                  onClick={closeMenu}
-                />
-                <MobileNavLink 
-                  to="/plans" 
-                  label="Pricing" 
-                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-primary-400 hover:text-primary-300' : 'text-primary-600 hover:text-primary-700'}`}
-                  icon={<BuildingOfficeIcon className="w-4 h-4" />}
+                  className={`flex items-center space-x-2 ${theme === 'dark' ? 'text-gray-300 hover:text-primary-400' : 'text-gray-700 hover:text-primary-600'}`}
+                  icon={<CalendarIcon className="w-4 h-4" />}
                   onClick={closeMenu}
                 />
               </>
@@ -467,22 +446,19 @@ const Navbar = () => {
             )}
             
             {!loading && !user && !isLoginPage && (
-               <motion.button
-                 onClick={() => {
-                   handleGoogleLogin();
-                   closeMenu();
-                 }}
-                 whileHover={{ scale: 1.02 }}
-                 whileTap={{ scale: 0.98 }}
-                 className="w-full flex items-center justify-center gap-2 py-3 px-4 font-medium rounded-lg mt-2 text-white shadow-lg"
-                 style={{
-                   background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
-                   boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
-                 }}
-               >
-                 <FaGoogle className="text-sm" />
-                 <span>Sign in with Google</span>
-               </motion.button>
+               <Link to="/login" className="w-full" onClick={closeMenu}>
+                 <motion.button
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   className="w-full flex items-center justify-center gap-2 py-3 px-4 font-medium rounded-lg mt-2 text-white shadow-lg"
+                   style={{
+                     background: 'linear-gradient(135deg, #8fa4f3 0%, #9d7bb8 100%)',
+                     boxShadow: '0 4px 16px rgba(143, 164, 243, 0.4)'
+                   }}
+                 >
+                   <span>Get Started</span>
+                 </motion.button>
+               </Link>
             )}
           </div>
         </motion.div>

@@ -7,10 +7,10 @@ import uvicorn
 from app_fastapi import app
 
 if __name__ == "__main__":
-    print("🚀 Starting FastAPI server...")
-    print("📡 Server will be available at: http://localhost:5000")
-    print("📚 API docs will be available at: http://localhost:5000/docs")
-    print("🔌 WebSocket endpoint: ws://localhost:5000/ws/{session_id}")
+    print("Starting FastAPI server...")
+    print("Server will be available at: http://localhost:5000")
+    print("API docs will be available at: http://localhost:5000/docs")
+    print("WebSocket endpoint: ws://localhost:5000/ws/{session_id}")
     
     uvicorn.run(
         "app_fastapi:app",  # Import string instead of app object

@@ -3,9 +3,10 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
 import json
+from app.database import Base
 
 
-class User:
+class User(Base):
     __tablename__ = "user"
     
     id = Column(Integer, primary_key=True)
@@ -71,7 +72,7 @@ class User:
                 "allowed_addons": []
             }
 
-class Assistant:
+class Assistant(Base):
     __tablename__ = "assistant"
     
     id = Column(Integer, primary_key=True)
@@ -117,7 +118,7 @@ class Assistant:
                 self.owner.subscription_status == "active")
 
 
-class Booking:
+class Booking(Base):
     __tablename__ = "booking"
     
     id             = Column(Integer, primary_key=True)
@@ -131,7 +132,7 @@ class Booking:
 
 
 
-class Conversation:
+class Conversation(Base):
     __tablename__ = "conversation"
     
     id             = Column(Integer, primary_key=True)
@@ -142,7 +143,7 @@ class Conversation:
     messages       = relationship("Message", back_populates="conversation")
 
 
-class Message:
+class Message(Base):
     __tablename__ = "message"
     
     id              = Column(Integer, primary_key=True)
@@ -155,7 +156,7 @@ class Message:
     conversation    = relationship("Conversation", back_populates="messages")
 
 
-class AssistantAnalytics:
+class AssistantAnalytics(Base):
     """Analytics data for assistants (Pro plan feature)"""
     __tablename__ = "assistant_analytics"
     

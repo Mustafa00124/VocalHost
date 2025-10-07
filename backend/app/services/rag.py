@@ -18,7 +18,12 @@ EMBED_MODEL   = "text-embedding-3-large"
 # ─── Qdrant client ─────────────────────────────────────────────────────────────
 QDRANT_URL     = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-_qdrant        = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+try:
+    _qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    print("Qdrant client initialized successfully")
+except Exception as e:
+    print(f"Qdrant client initialization failed: {e}")
+    _qdrant = None
 
 
 def extract_text_from_pdf_with_gemini(pdf_buffer: bytes) -> str:
@@ -105,6 +110,10 @@ def extract_and_index(
       - upsert into Qdrant under "assistant_{assistant_id}_user_{user_id}"
     Returns how many chunks were indexed.
     """
+    if not _qdrant:
+        print("Qdrant client not available - skipping indexing")
+        return {"indexed": 0}
+
     all_chunks: list[str] = []
 
     # 1) Extract & chunk

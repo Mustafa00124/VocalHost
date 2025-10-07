@@ -101,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
             if (response.ok) {
               const userData = await response.json();
+              console.log('AuthContext: Received user data:', userData);
               
               const userObject = {
                 id: userData.user.id,
@@ -110,6 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 expiresAt: expiresAt
               };
               
+              console.log('AuthContext: Setting user object:', userObject);
               setUser(userObject);
               localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userObject));
             } else {

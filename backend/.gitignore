@@ -12,3 +12,4 @@ memory_1.json
 alembic/__pycache__
 alembic/versions/__pycache__
 venv_310/
+backend/__pycache__

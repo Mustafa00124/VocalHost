@@ -20,15 +20,12 @@ if config.config_file_name is not None:
 project_root = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, project_root)
 
-# ── import your Flask app and its SQLAlchemy db
-from app import create_app
-from app.extensions import db
+# ── import FastAPI models and database
+from app.database import Base
+from app.models import User, Assistant, Booking, Conversation, Message, AssistantAnalytics
 
-# create an app context so the models are registered
-app = create_app()
-with app.app_context():
-    # target_metadata is what Alembic uses for autogenerate
-    target_metadata = db.metadata
+# target_metadata is what Alembic uses for autogenerate
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

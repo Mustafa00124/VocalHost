@@ -361,21 +361,33 @@ const Dashboard = () => {
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-8 h-8 border-t-2 border-primary-500 rounded-full animate-spin mr-3"></div>
-            <span className="text-gray-400">Loading assistants...</span>
+            <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Loading assistants...</span>
           </div>
         ) : error ? (
-          <div className="bg-red-500/20 text-red-400 p-4 rounded-lg text-center">
+          <div className={`p-4 rounded-lg text-center ${
+            theme === 'dark' 
+              ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+              : 'bg-red-50 text-red-600 border border-red-200'
+          }`}>
             {error}
             <button
               onClick={handleRetryFetch}
-              className="ml-4 underline hover:text-red-300"
+              className={`ml-4 underline ${
+                theme === 'dark' ? 'hover:text-red-200' : 'hover:text-red-700'
+              }`}
             >
               Retry
             </button>
           </div>
         ) : assistants.length === 0 ? (
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-8 text-center">
-            <p className="text-gray-300 mb-4">You don't have any assistants yet.</p>
+          <div className={`backdrop-blur-sm rounded-xl p-8 text-center ${
+            theme === 'dark' 
+              ? 'bg-gray-800/50 border border-gray-700' 
+              : 'bg-white/50 border border-gray-200'
+          }`}>
+            <p className={`mb-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+              You don't have any assistants yet.
+            </p>
             <Link
               to="/create"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:opacity-90 transition-opacity"
